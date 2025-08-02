@@ -8,7 +8,7 @@ class PermissionHelper {
   PermissionHelper._();
 
   /// 카메라 권한 요청
-  /// 
+  ///
   /// Returns: 권한 상태
   static Future<PermissionStatus> requestCameraPermission() async {
     try {
@@ -21,7 +21,7 @@ class PermissionHelper {
   }
 
   /// 카메라 권한 상태 확인
-  /// 
+  ///
   /// Returns: 권한 상태
   static Future<PermissionStatus> checkCameraPermission() async {
     try {
@@ -34,7 +34,7 @@ class PermissionHelper {
   }
 
   /// 카메라 권한이 허용되었는지 확인
-  /// 
+  ///
   /// Returns: 권한 허용 여부
   static Future<bool> isCameraPermissionGranted() async {
     final status = await checkCameraPermission();
@@ -42,7 +42,7 @@ class PermissionHelper {
   }
 
   /// 카메라 권한이 영구적으로 거부되었는지 확인
-  /// 
+  ///
   /// Returns: 영구 거부 여부
   static Future<bool> isCameraPermissionPermanentlyDenied() async {
     final status = await checkCameraPermission();
@@ -50,7 +50,7 @@ class PermissionHelper {
   }
 
   /// 권한 상태에 따른 메시지 반환
-  /// 
+  ///
   /// [status] 권한 상태
   /// Returns: 사용자에게 표시할 메시지
   static String getPermissionMessage(PermissionStatus status) {
@@ -73,7 +73,7 @@ class PermissionHelper {
   }
 
   /// 권한 상태에 따른 액션 메시지 반환
-  /// 
+  ///
   /// [status] 권한 상태
   /// Returns: 사용자가 수행할 액션 메시지
   static String getPermissionActionMessage(PermissionStatus status) {
@@ -96,7 +96,7 @@ class PermissionHelper {
   }
 
   /// 권한 요청이 필요한지 확인
-  /// 
+  ///
   /// Returns: 권한 요청 필요 여부
   static Future<bool> shouldRequestPermission() async {
     final status = await checkCameraPermission();
@@ -104,7 +104,7 @@ class PermissionHelper {
   }
 
   /// 앱 설정으로 이동
-  /// 
+  ///
   /// Returns: 설정 열기 성공 여부
   static Future<bool> openAppSettings() async {
     try {
@@ -116,7 +116,7 @@ class PermissionHelper {
   }
 
   /// 권한 상태를 문자열로 변환
-  /// 
+  ///
   /// [status] 권한 상태
   /// Returns: 상태 문자열
   static String permissionStatusToString(PermissionStatus status) {
@@ -139,7 +139,7 @@ class PermissionHelper {
   }
 
   /// 문자열을 권한 상태로 변환
-  /// 
+  ///
   /// [statusString] 상태 문자열
   /// Returns: 권한 상태
   static PermissionStatus stringToPermissionStatus(String statusString) {
@@ -162,7 +162,7 @@ class PermissionHelper {
   }
 
   /// 권한 요청 결과 처리
-  /// 
+  ///
   /// [status] 권한 상태
   /// Returns: 처리 결과 맵
   static Map<String, dynamic> handlePermissionResult(PermissionStatus status) {
@@ -181,7 +181,7 @@ class PermissionHelper {
   }
 
   /// 권한 요청 및 결과 처리
-  /// 
+  ///
   /// Returns: 처리 결과 맵
   static Future<Map<String, dynamic>> requestAndHandlePermission() async {
     final status = await requestCameraPermission();
@@ -189,10 +189,10 @@ class PermissionHelper {
   }
 
   /// 권한 상태 확인 및 결과 처리
-  /// 
+  ///
   /// Returns: 처리 결과 맵
   static Future<Map<String, dynamic>> checkAndHandlePermission() async {
     final status = await checkCameraPermission();
     return handlePermissionResult(status);
   }
-} 
+}

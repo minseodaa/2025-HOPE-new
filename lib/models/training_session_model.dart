@@ -6,25 +6,25 @@ import 'smile_score_model.dart';
 class TrainingSessionModel {
   /// 세션 ID
   final String sessionId;
-  
+
   /// 세션 시작 시간
   final DateTime startTime;
-  
+
   /// 세션 종료 시간 (null이면 진행 중)
   final DateTime? endTime;
-  
+
   /// 훈련 주제
   final String trainingTopic;
-  
+
   /// 웃음 점수 기록 리스트
   final List<SmileScoreModel> scoreHistory;
-  
+
   /// 최고 점수
   final double maxScore;
-  
+
   /// 평균 점수
   final double averageScore;
-  
+
   /// 세션 상태
   final TrainingSessionStatus status;
 
@@ -44,8 +44,8 @@ class TrainingSessionModel {
     return TrainingSessionModel(
       sessionId: json['sessionId'] as String,
       startTime: DateTime.parse(json['startTime'] as String),
-      endTime: json['endTime'] != null 
-          ? DateTime.parse(json['endTime'] as String) 
+      endTime: json['endTime'] != null
+          ? DateTime.parse(json['endTime'] as String)
           : null,
       trainingTopic: json['trainingTopic'] as String,
       scoreHistory: (json['scoreHistory'] as List)
@@ -146,12 +146,12 @@ class TrainingSessionModel {
   @override
   int get hashCode {
     return Object.hash(
-      sessionId, 
-      startTime, 
-      endTime, 
-      trainingTopic, 
-      maxScore, 
-      averageScore, 
+      sessionId,
+      startTime,
+      endTime,
+      trainingTopic,
+      maxScore,
+      averageScore,
       status,
     );
   }
@@ -166,13 +166,13 @@ class TrainingSessionModel {
 enum TrainingSessionStatus {
   /// 활성 상태 (진행 중)
   active,
-  
+
   /// 일시정지 상태
   paused,
-  
+
   /// 완료 상태
   completed,
-  
+
   /// 취소 상태
   cancelled,
-} 
+}

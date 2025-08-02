@@ -5,13 +5,13 @@ import 'dart:convert';
 class SmileScoreModel {
   /// 웃음 점수 (0.0 ~ 1.0)
   final double score;
-  
+
   /// 점수 계산 시간
   final DateTime timestamp;
-  
+
   /// 얼굴이 감지되었는지 여부
   final bool isFaceDetected;
-  
+
   /// 신뢰도 (0.0 ~ 1.0)
   final double confidence;
 
@@ -98,4 +98,4 @@ class SmileScoreModel {
   String toString() {
     return 'SmileScoreModel(score: $score, timestamp: $timestamp, isFaceDetected: $isFaceDetected, confidence: $confidence)';
   }
-} 
+}

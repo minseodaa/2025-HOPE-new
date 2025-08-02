@@ -23,7 +23,8 @@ class CameraService {
 
   // 스트림 관련 변수들
   StreamSubscription<CameraImage>? _imageStreamSubscription;
-  final StreamController<CameraImage> _imageStreamController = StreamController<CameraImage>.broadcast();
+  final StreamController<CameraImage> _imageStreamController =
+      StreamController<CameraImage>.broadcast();
 
   // Getters
   CameraController? get cameraController => _cameraController;
@@ -34,14 +35,15 @@ class CameraService {
   Stream<CameraImage> get imageStream => _imageStreamController.stream;
 
   /// 카메라 서비스 초기화
-  /// 
+  ///
   /// Returns: 초기화 성공 여부
   Future<bool> initialize() async {
     try {
       // 권한 확인
       final hasPermission = await PermissionHelper.isCameraPermissionGranted();
       if (!hasPermission) {
-        final permissionResult = await PermissionHelper.requestAndHandlePermission();
+        final permissionResult =
+            await PermissionHelper.requestAndHandlePermission();
         if (!permissionResult['isGranted']) {
           throw Exception('카메라 권한이 필요합니다.');
         }
@@ -54,7 +56,9 @@ class CameraService {
       }
 
       // 전면 카메라 우선 선택
-      _selectedCameraIndex = _cameras.indexWhere((camera) => camera.lensDirection == CameraLensDirection.front);
+      _selectedCameraIndex = _cameras.indexWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+      );
       if (_selectedCameraIndex == -1) {
         _selectedCameraIndex = 0; // 전면 카메라가 없으면 첫 번째 카메라 사용
       }
@@ -80,8 +84,8 @@ class CameraService {
       _cameras[_selectedCameraIndex],
       ResolutionPreset.medium,
       enableAudio: false,
-      imageFormatGroup: Platform.isAndroid 
-          ? ImageFormatGroup.yuv420 
+      imageFormatGroup: Platform.isAndroid
+          ? ImageFormatGroup.yuv420
           : ImageFormatGroup.bgra8888,
     );
 
@@ -90,7 +94,7 @@ class CameraService {
   }
 
   /// 카메라 스트림 시작
-  /// 
+  ///
   /// Returns: 스트림 시작 성공 여부
   Future<bool> startImageStream() async {
     if (!_isInitialized || _cameraController == null) {
@@ -132,7 +136,7 @@ class CameraService {
   }
 
   /// 카메라 전환 (전면/후면)
-  /// 
+  ///
   /// Returns: 전환 성공 여부
   Future<bool> switchCamera() async {
     if (_cameras.length < 2) {
@@ -142,7 +146,7 @@ class CameraService {
     try {
       // 다음 카메라 인덱스 계산
       _selectedCameraIndex = (_selectedCameraIndex + 1) % _cameras.length;
-      
+
       // 스트리밍 중이면 중지
       final wasStreaming = _isStreaming;
       if (wasStreaming) {
@@ -164,7 +168,7 @@ class CameraService {
   }
 
   /// 카메라 설정 변경
-  /// 
+  ///
   /// [resolution] 해상도 설정
   /// Returns: 설정 변경 성공 여부
   Future<bool> changeResolution(ResolutionPreset resolution) async {
@@ -184,8 +188,8 @@ class CameraService {
         _cameras[_selectedCameraIndex],
         resolution,
         enableAudio: false,
-        imageFormatGroup: Platform.isAndroid 
-            ? ImageFormatGroup.yuv420 
+        imageFormatGroup: Platform.isAndroid
+            ? ImageFormatGroup.yuv420
             : ImageFormatGroup.bgra8888,
       );
 
@@ -203,14 +207,14 @@ class CameraService {
   }
 
   /// 카메라 권한 재요청
-  /// 
+  ///
   /// Returns: 권한 요청 결과
   Future<Map<String, dynamic>> requestPermission() async {
     return await PermissionHelper.requestAndHandlePermission();
   }
 
   /// 카메라 권한 상태 확인
-  /// 
+  ///
   /// Returns: 권한 상태 확인 결과
   Future<Map<String, dynamic>> checkPermission() async {
     return await PermissionHelper.checkAndHandlePermission();
@@ -235,16 +239,16 @@ class CameraService {
     try {
       // 스트림 중지
       await stopImageStream();
-      
+
       // 스트림 구독 해제
       _disposeStreamSubscription();
-      
+
       // 스트림 컨트롤러 해제
       await _imageStreamController.close();
-      
+
       // 카메라 컨트롤러 해제
       await _disposeCameraController();
-      
+
       // 상태 초기화
       _isInitialized = false;
       _isStreaming = false;
@@ -285,4 +289,4 @@ class CameraService {
       'hasPermission': PermissionHelper.isCameraPermissionGranted(),
     };
   }
-} 
+}
