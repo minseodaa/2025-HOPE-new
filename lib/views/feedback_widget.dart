@@ -103,38 +103,62 @@ class FeedbackWidget extends StatelessWidget {
   }
 
   Color _getFeedbackColor(double score) {
-    if (score >= 0.8) {
+    if (score >= 0.9) {
+      return AppColors.success;
+    } else if (score >= 0.8) {
+      return Color(0xFF22C55E); // 밝은 초록
+    } else if (score >= 0.7) {
       return AppColors.success;
     } else if (score >= 0.6) {
       return AppColors.accent;
-    } else if (score >= 0.3) {
+    } else if (score >= 0.5) {
+      return Color(0xFFF97316); // 주황
+    } else if (score >= 0.4) {
       return AppColors.warning;
+    } else if (score >= 0.2) {
+      return Color(0xFFDC2626); // 빨강
     } else {
       return AppColors.error;
     }
   }
 
   IconData _getFeedbackIcon(double score) {
-    if (score >= 0.8) {
+    if (score >= 0.9) {
       return Icons.celebration;
-    } else if (score >= 0.6) {
+    } else if (score >= 0.8) {
+      return Icons.star;
+    } else if (score >= 0.7) {
       return Icons.thumb_up;
-    } else if (score >= 0.3) {
+    } else if (score >= 0.6) {
+      return Icons.favorite;
+    } else if (score >= 0.5) {
       return Icons.emoji_emotions;
+    } else if (score >= 0.4) {
+      return Icons.sentiment_satisfied;
+    } else if (score >= 0.2) {
+      return Icons.sentiment_neutral;
     } else {
       return Icons.sentiment_dissatisfied;
     }
   }
 
   String _getFeedbackMessage(double score) {
-    if (score >= 0.8) {
-      return '완벽합니다! 계속 유지하세요!';
+    if (score >= 0.9) {
+      return '완벽한 미소! 최고예요! 🎉';
+    } else if (score >= 0.8) {
+      return '거의 완벽해요! 조금만 더! 🌟';
+    } else if (score >= 0.7) {
+      return '훌륭한 미소! 계속 유지하세요! ✨';
     } else if (score >= 0.6) {
-      return '좋은 미소입니다! 더 밝게 웃어보세요!';
-    } else if (score >= 0.3) {
-      return '조금 더 밝은 표정을 지어보세요!';
+      return '좋은 미소입니다! 더 밝게! 😊';
+    } else if (score >= 0.5) {
+      return '괜찮아요! 조금 더 웃어보세요! 🙂';
+    } else if (score >= 0.4) {
+      return '조금 더 밝은 표정을 지어보세요! 😄';
+    } else if (score >= 0.2) {
+      return '입꼬리를 올려서 웃어보세요! 😃';
     } else {
-      return '입꼬리를 올려서 웃어보세요!';
+      return '미소 연습을 시작해보세요! 😌';
     }
   }
 }

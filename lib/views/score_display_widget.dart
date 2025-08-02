@@ -129,26 +129,42 @@ class ScoreDisplayWidget extends StatelessWidget {
   }
 
   Color _getScoreColor(double score) {
-    if (score >= 0.8) {
+    if (score >= 0.9) {
+      return AppColors.success;
+    } else if (score >= 0.8) {
+      return Color(0xFF22C55E); // 밝은 초록
+    } else if (score >= 0.7) {
       return AppColors.success;
     } else if (score >= 0.6) {
       return AppColors.accent;
-    } else if (score >= 0.3) {
+    } else if (score >= 0.5) {
+      return Color(0xFFF97316); // 주황
+    } else if (score >= 0.4) {
       return AppColors.warning;
+    } else if (score >= 0.2) {
+      return Color(0xFFDC2626); // 빨강
     } else {
       return AppColors.error;
     }
   }
 
   String _getScoreMessage(double score) {
-    if (score >= 0.8) {
+    if (score >= 0.9) {
       return '완벽한 미소! 🎉';
+    } else if (score >= 0.8) {
+      return '거의 완벽해요! 🌟';
+    } else if (score >= 0.7) {
+      return '훌륭한 미소! ✨';
     } else if (score >= 0.6) {
       return '좋은 미소예요! 😊';
-    } else if (score >= 0.3) {
+    } else if (score >= 0.5) {
+      return '괜찮은 미소! 🙂';
+    } else if (score >= 0.4) {
       return '조금 더 웃어보세요! 😄';
-    } else {
+    } else if (score >= 0.2) {
       return '더 밝게 웃어보세요! 😃';
+    } else {
+      return '미소를 연습해보세요! 😌';
     }
   }
 }
