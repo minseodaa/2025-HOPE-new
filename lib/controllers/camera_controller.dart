@@ -26,6 +26,7 @@ class AppCameraController extends GetxController {
   final RxBool isFaceDetected = false.obs;
   final RxDouble smileScore = 0.0.obs;
   final RxString errorMessage = ''.obs;
+  final RxList<Face> detectedFaces = <Face>[].obs;
 
   CameraController? get controller => _controller;
   FaceDetector get faceDetector => _faceDetector;
@@ -106,6 +107,7 @@ class AppCameraController extends GetxController {
         await _controller!.stopImageStream();
         isStreaming.value = false;
         isFaceDetected.value = false;
+        detectedFaces.clear();
         smileScore.value = 0.0;
       } catch (e) {
         errorMessage.value = '스트림 중지에 실패했습니다: $e';
@@ -126,10 +128,12 @@ class AppCameraController extends GetxController {
 
       if (faces.isNotEmpty) {
         isFaceDetected.value = true;
+        detectedFaces.value = faces;
         _calculateSmileScore(faces.first);
         print('얼굴 감지됨 - 미소 점수: ${smileScore.value}');
       } else {
         isFaceDetected.value = false;
+        detectedFaces.clear();
         smileScore.value = 0.0;
         print('얼굴 미감지');
       }

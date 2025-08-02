@@ -110,6 +110,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     return CameraPreviewWidget(
                       controller: _cameraController.controller!,
                       isFaceDetected: _cameraController.isFaceDetected.value,
+                      detectedFaces: _cameraController.detectedFaces,
                     );
                   } else {
                     return Container(
