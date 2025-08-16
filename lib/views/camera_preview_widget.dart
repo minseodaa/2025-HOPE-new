@@ -152,17 +152,15 @@ class FaceLandmarksPainter extends CustomPainter {
     for (final face in faces) {
       // 바운딩 박스 변환 및 그리기 (cover 스케일과 크롭 오프셋 적용)
       final Rect raw = face.boundingBox;
-      double left = raw.left * scale + dx;
-      double top = raw.top * scale + dy;
-      double right = raw.right * scale + dx;
-      double bottom = raw.bottom * scale + dy;
+      double left = dx + raw.left * scale;
+      double top = dy + raw.top * scale;
+      double width = raw.width * scale;
+      double height = raw.height * scale;
       if (cameraLensDirection == CameraLensDirection.front) {
-        final double flippedLeft = size.width - right;
-        final double flippedRight = size.width - left;
-        left = flippedLeft;
-        right = flippedRight;
+        // 이미지 표시 영역(dx..dx+scaledWidth) 기준으로 좌우 반전
+        left = dx + (scaledWidth - (raw.left + raw.width) * scale);
       }
-      final Rect screenRect = Rect.fromLTRB(left, top, right, bottom);
+      final Rect screenRect = Rect.fromLTWH(left, top, width, height);
       canvas.drawRect(screenRect, borderPaint);
       // ignore: avoid_print
       print(
@@ -173,10 +171,11 @@ class FaceLandmarksPainter extends CustomPainter {
       for (final entry in face.landmarks.entries) {
         final landmark = entry.value;
         if (landmark == null) continue;
-        double sx = landmark.position.x * scale + dx;
-        double sy = landmark.position.y * scale + dy;
+        double sx = dx + landmark.position.x * scale;
+        double sy = dy + landmark.position.y * scale;
         if (cameraLensDirection == CameraLensDirection.front) {
-          sx = size.width - sx;
+          // 이미지 표시 영역 기준 좌우 반전
+          sx = dx + (scaledWidth - landmark.position.x * scale);
         }
         if (sx < 0 || sy < 0 || sx > size.width || sy > size.height) continue;
         canvas.drawCircle(Offset(sx, sy), 4.0, landmarkPaint);
