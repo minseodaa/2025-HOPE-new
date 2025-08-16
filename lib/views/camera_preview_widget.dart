@@ -23,11 +23,29 @@ class CameraPreviewWidget extends StatelessWidget {
         // 카메라 프리뷰
         CameraPreview(controller),
 
-        // 얼굴 특징점 오버레이
+        // 얼굴 특징점 오버레이 (단일 CustomPaint로 모든 얼굴 처리 + 카메라 프레임에 맞춰 repaint)
         if (isFaceDetected &&
             detectedFaces != null &&
             detectedFaces!.isNotEmpty)
-          ...detectedFaces!.map((face) => _buildFaceLandmarks(face)),
+          CustomPaint(
+            painter: FaceLandmarksPainter(
+              facesProvider: () {
+                try {
+                  if (detectedFaces is List<Face>) {
+                    return detectedFaces as List<Face>;
+                  }
+                  if (detectedFaces is Iterable) {
+                    return List<Face>.from(detectedFaces as Iterable);
+                  }
+                } catch (_) {}
+                return const <Face>[];
+              },
+              imageSize: controller.value.previewSize ?? const Size(0, 0),
+              cameraLensDirection: controller.description.lensDirection,
+              repaint: controller,
+            ),
+            child: const SizedBox.expand(),
+          ),
 
         // 얼굴 감지 오버레이
         if (!isFaceDetected)
@@ -91,107 +109,77 @@ class CameraPreviewWidget extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildFaceLandmarks(Face face) {
-    return CustomPaint(
-      painter: FaceLandmarksPainter(face),
-      child: Container(width: double.infinity, height: double.infinity),
-    );
-  }
 }
 
 class FaceLandmarksPainter extends CustomPainter {
-  final Face face;
+  final List<Face> Function() facesProvider;
+  final Size imageSize;
+  final CameraLensDirection cameraLensDirection;
 
-  FaceLandmarksPainter(this.face);
+  FaceLandmarksPainter({
+    required this.facesProvider,
+    required this.imageSize,
+    required this.cameraLensDirection,
+    Listenable? repaint,
+  }) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 얼굴 바운딩 박스 그리기
-    _drawFaceBoundingBox(canvas, size);
+    final faces = facesProvider();
+    if (faces.isEmpty || imageSize.width == 0 || imageSize.height == 0) return;
 
-    // 얼굴 특징점 그리기
-    _drawLandmarks(canvas, size);
+    // portrait에서 camera preview는 90도 회전된 좌표계를 갖는 경우가 많아 width/height를 스왑하여 스케일 계산
+    final double previewWidth = imageSize.height;
+    final double previewHeight = imageSize.width;
+    final double scaleX = size.width / previewWidth;
+    final double scaleY = size.height / previewHeight;
 
-    // 디버깅: 얼굴 위치 정보 출력
-    print('원본 얼굴 바운딩 박스: ${face.boundingBox}');
-  }
+    final landmarkPaint = Paint()
+      ..color = Colors.lightGreenAccent
+      ..style = PaintingStyle.fill;
 
-  void _drawFaceBoundingBox(Canvas canvas, Size size) {
-    final boundingBox = face.boundingBox;
-
-    // ML Kit에서 받은 좌표는 픽셀 단위이므로 화면 크기에 맞게 스케일링
-    final rect = Rect.fromLTWH(
-      boundingBox.left * size.width / 537.0, // 카메라 해상도에 맞게 조정
-      boundingBox.top * size.height / 720.0, // 카메라 해상도에 맞게 조정
-      boundingBox.width * size.width / 537.0, // 카메라 해상도에 맞게 조정
-      boundingBox.height * size.height / 720.0, // 카메라 해상도에 맞게 조정
-    );
-
-    // 바운딩 박스를 파란색 선으로 그리기
     final borderPaint = Paint()
       ..color = Colors.blue
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
+      ..strokeWidth = 2.0;
 
-    canvas.drawRect(rect, borderPaint);
+    for (final face in faces) {
+      // 바운딩 박스 변환 및 그리기
+      final Rect raw = face.boundingBox;
+      Rect rect = Rect.fromLTWH(
+        raw.left * scaleX,
+        raw.top * scaleY,
+        raw.width * scaleX,
+        raw.height * scaleY,
+      );
+      if (cameraLensDirection == CameraLensDirection.front) {
+        rect = Rect.fromLTWH(
+          size.width - rect.right,
+          rect.top,
+          rect.width,
+          rect.height,
+        );
+      }
+      canvas.drawRect(rect, borderPaint);
 
-    // 바운딩 박스 중앙에 파란 점 그리기
-    final centerPaint = Paint()
-      ..color = Colors.blue
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(
-      Offset(rect.center.dx, rect.center.dy),
-      10.0,
-      centerPaint,
-    );
-
-    // 디버깅: 변환된 바운딩 박스 정보 출력
-    print('변환된 바운딩 박스: $rect - 화면 크기: ${size.width}x${size.height}');
-  }
-
-  void _drawLandmarks(Canvas canvas, Size size) {
-    // 모든 특징점을 노란색으로 그리기
-    final landmarkPaint = Paint()
-      ..color = Colors.yellow
-      ..style = PaintingStyle.fill;
-
-    // 특징점 개수 디버깅
-    print('얼굴 특징점 개수: ${face.landmarks.length}');
-
-    for (final entry in face.landmarks.entries) {
-      final landmark = entry.value;
-      if (landmark != null) {
-        final position = landmark.position;
-
-        // ML Kit에서 받은 좌표는 이미 픽셀 단위이므로 화면 크기에 맞게 스케일링
-        double x = position.x * size.width / 537.0; // 카메라 해상도에 맞게 조정
-        double y = position.y * size.height / 720.0; // 카메라 해상도에 맞게 조정
-
-        // 화면 범위 내에 있는지 확인
-        if (x >= 0 && x <= size.width && y >= 0 && y <= size.height) {
-          // 특징점 위치 디버깅
-          print(
-            '특징점 ${entry.key}: 원본(${position.x}, ${position.y}) -> 변환($x, $y) - 화면 크기: ${size.width}x${size.height}',
-          );
-
-          // 특징점 그리기
-          canvas.drawCircle(
-            Offset(x, y),
-            8.0, // 크기를 적당하게
-            landmarkPaint,
-          );
-        } else {
-          print('특징점 ${entry.key}가 화면 범위를 벗어남: ($x, $y)');
+      // 랜드마크 그리기
+      for (final entry in face.landmarks.entries) {
+        final landmark = entry.value;
+        if (landmark == null) continue;
+        double x = landmark.position.x * scaleX;
+        double y = landmark.position.y * scaleY;
+        if (cameraLensDirection == CameraLensDirection.front) {
+          x = size.width - x;
         }
+        if (x < 0 || y < 0 || x > size.width || y > size.height) continue;
+        canvas.drawCircle(Offset(x, y), 4.0, landmarkPaint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    // 항상 다시 그리도록 설정 (실시간 업데이트를 위해)
-    return true;
+  bool shouldRepaint(covariant FaceLandmarksPainter oldDelegate) {
+    // repaint Listenable(controller)로 프레임마다 자동 갱신되므로 여기서는 false
+    return false;
   }
 }
