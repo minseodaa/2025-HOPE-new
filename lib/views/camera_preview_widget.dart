@@ -128,11 +128,17 @@ class FaceLandmarksPainter extends CustomPainter {
     final faces = facesProvider();
     if (faces.isEmpty || imageSize.width == 0 || imageSize.height == 0) return;
 
-    // portrait에서 camera preview는 90도 회전된 좌표계를 갖는 경우가 많아 width/height를 스왑하여 스케일 계산
-    final double previewWidth = imageSize.height;
-    final double previewHeight = imageSize.width;
-    final double scaleX = size.width / previewWidth;
-    final double scaleY = size.height / previewHeight;
+    // CameraPreview는 기본적으로 BoxFit.cover로 표시됨.
+    // portrait 환경에 맞춰 previewSize의 축을 스왑하고, cover 스케일과 크롭 오프셋(dx, dy)을 계산한다.
+    final double imageWidth = imageSize.height;
+    final double imageHeight = imageSize.width;
+    final double scale = (size.width / imageWidth) > (size.height / imageHeight)
+        ? (size.width / imageWidth)
+        : (size.height / imageHeight);
+    final double scaledWidth = imageWidth * scale;
+    final double scaledHeight = imageHeight * scale;
+    final double dx = (size.width - scaledWidth) / 2.0;
+    final double dy = (size.height - scaledHeight) / 2.0;
 
     final landmarkPaint = Paint()
       ..color = Colors.lightGreenAccent
@@ -144,35 +150,45 @@ class FaceLandmarksPainter extends CustomPainter {
       ..strokeWidth = 2.0;
 
     for (final face in faces) {
-      // 바운딩 박스 변환 및 그리기
+      // 바운딩 박스 변환 및 그리기 (cover 스케일과 크롭 오프셋 적용)
       final Rect raw = face.boundingBox;
-      Rect rect = Rect.fromLTWH(
-        raw.left * scaleX,
-        raw.top * scaleY,
-        raw.width * scaleX,
-        raw.height * scaleY,
-      );
+      double left = raw.left * scale + dx;
+      double top = raw.top * scale + dy;
+      double right = raw.right * scale + dx;
+      double bottom = raw.bottom * scale + dy;
       if (cameraLensDirection == CameraLensDirection.front) {
-        rect = Rect.fromLTWH(
-          size.width - rect.right,
-          rect.top,
-          rect.width,
-          rect.height,
-        );
+        final double flippedLeft = size.width - right;
+        final double flippedRight = size.width - left;
+        left = flippedLeft;
+        right = flippedRight;
       }
-      canvas.drawRect(rect, borderPaint);
+      final Rect screenRect = Rect.fromLTRB(left, top, right, bottom);
+      canvas.drawRect(screenRect, borderPaint);
+      // ignore: avoid_print
+      print(
+        'FaceBox screen: l=${screenRect.left.toStringAsFixed(1)}, t=${screenRect.top.toStringAsFixed(1)}, w=${screenRect.width.toStringAsFixed(1)}, h=${screenRect.height.toStringAsFixed(1)}',
+      );
 
-      // 랜드마크 그리기
+      // 랜드마크 그리기 + 디버그 로그 출력 (부위별 x, y)
       for (final entry in face.landmarks.entries) {
         final landmark = entry.value;
         if (landmark == null) continue;
-        double x = landmark.position.x * scaleX;
-        double y = landmark.position.y * scaleY;
+        double sx = landmark.position.x * scale + dx;
+        double sy = landmark.position.y * scale + dy;
         if (cameraLensDirection == CameraLensDirection.front) {
-          x = size.width - x;
+          sx = size.width - sx;
         }
-        if (x < 0 || y < 0 || x > size.width || y > size.height) continue;
-        canvas.drawCircle(Offset(x, y), 4.0, landmarkPaint);
+        if (sx < 0 || sy < 0 || sx > size.width || sy > size.height) continue;
+        canvas.drawCircle(Offset(sx, sy), 4.0, landmarkPaint);
+
+        // 디버그 좌표 출력 (원본 좌표)
+        final String name = entry.key.toString();
+        // 주의: paint는 매 프레임 호출되므로 출력량이 많을 수 있음
+        // 요구사항에 따라 부위별 원본 좌표를 출력
+        // ignore: avoid_print
+        print(
+          'LM ${name}: raw=(${landmark.position.x.toStringAsFixed(1)}, ${landmark.position.y.toStringAsFixed(1)}) screen=(${sx.toStringAsFixed(1)}, ${sy.toStringAsFixed(1)})',
+        );
       }
     }
   }
