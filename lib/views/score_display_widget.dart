@@ -36,7 +36,7 @@ class ScoreDisplayWidget extends StatelessWidget {
         children: [
           // 점수 라벨
           Text(
-            '미소 점수',
+            '진척도',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 16,

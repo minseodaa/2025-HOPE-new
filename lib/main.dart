@@ -5,8 +5,8 @@ import 'package:permission_handler/permission_handler.dart';
 // import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 // import 'package:flutter_animate/flutter_animate.dart';
 
-import 'views/training_screen.dart';
 import 'utils/constants.dart';
+import 'views/expression_select_screen.dart';
 
 void main() async {
   // Flutter 바인딩 초기화
@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
               body: Center(child: Text('카메라를 초기화할 수 없습니다.')),
             );
           }
-          return TrainingScreen(camera: snapshot.data!);
+          return ExpressionSelectScreen(camera: snapshot.data!);
         },
       ),
       debugShowCheckedModeBanner: false,

@@ -14,6 +14,7 @@ class AppCameraController extends GetxController {
     options: FaceDetectorOptions(
       performanceMode: FaceDetectorMode.accurate,
       enableLandmarks: true,
+      enableContours: true,
       enableClassification: true,
       enableTracking: true,
       minFaceSize: 0.15,
@@ -25,6 +26,8 @@ class AppCameraController extends GetxController {
   final RxBool hasPermission = false.obs;
   final RxBool isFaceDetected = false.obs;
   final RxDouble smileScore = 0.0.obs;
+  final RxDouble sadScore = 0.0.obs;
+  final RxString activeExpression = 'smile'.obs; // 'smile' | 'sad'
   final RxString errorMessage = ''.obs;
   final RxList<Face> detectedFaces = <Face>[].obs;
 
@@ -129,12 +132,13 @@ class AppCameraController extends GetxController {
       if (faces.isNotEmpty) {
         isFaceDetected.value = true;
         detectedFaces.value = faces;
-        _calculateSmileScore(faces.first);
-        print('얼굴 감지됨 - 미소 점수: ${smileScore.value}');
+        _updateExpressionScores(faces.first);
+        print('얼굴 감지됨 - 미소 점수: ${smileScore.value}, 슬픔 점수: ${sadScore.value}');
       } else {
         isFaceDetected.value = false;
         detectedFaces.clear();
         smileScore.value = 0.0;
+        sadScore.value = 0.0;
         print('얼굴 미감지');
       }
     } catch (e) {
@@ -193,6 +197,87 @@ class AppCameraController extends GetxController {
         smileScore.value = 0.0;
       }
     }
+  }
+
+  void _calculateSadScore(Face face) {
+    // 입 좌표 기반 슬픈 표정 점수 계산: 입꼬리(y)가 기준점 대비 얼마나 내려갔는지
+    double? leftY;
+    double? rightY;
+    double? bottomY;
+    double? noseY;
+
+    final leftLm = face.landmarks[FaceLandmarkType.leftMouth]?.position;
+    final rightLm = face.landmarks[FaceLandmarkType.rightMouth]?.position;
+    final bottomLm = face.landmarks[FaceLandmarkType.bottomMouth]?.position;
+    final noseLm = face.landmarks[FaceLandmarkType.noseBase]?.position;
+
+    if (leftLm != null) leftY = (leftLm.y as num).toDouble();
+    if (rightLm != null) rightY = (rightLm.y as num).toDouble();
+    if (bottomLm != null) bottomY = (bottomLm.y as num).toDouble();
+    if (noseLm != null) noseY = (noseLm.y as num).toDouble();
+
+    // 랜드마크가 부족하면 컨투어에서 대체
+    if (leftY == null || rightY == null) {
+      final upperLipTop = face.contours[FaceContourType.upperLipTop]?.points;
+      final lowerLipTop = face.contours[FaceContourType.lowerLipTop]?.points;
+      final lip = (upperLipTop != null && upperLipTop.isNotEmpty)
+          ? upperLipTop
+          : ((lowerLipTop != null && lowerLipTop.isNotEmpty)
+                ? lowerLipTop
+                : null);
+      if (lip != null && lip.isNotEmpty) {
+        leftY ??= (lip.first.y as num).toDouble();
+        rightY ??= (lip.last.y as num).toDouble();
+      }
+    }
+
+    if (leftY == null || rightY == null) {
+      sadScore.value = 0.0;
+      return;
+    }
+
+    // 기준점 선택
+    final avgCornerY = (leftY + rightY) / 2.0;
+
+    double baselineY;
+    double normDenominator;
+
+    if (noseY != null && bottomY != null) {
+      baselineY = noseY;
+      normDenominator = (bottomY - noseY).abs();
+    } else if (noseY != null) {
+      baselineY = noseY;
+      normDenominator = (face.boundingBox.height * 0.25).abs();
+    } else if (bottomY != null) {
+      baselineY = bottomY - (face.boundingBox.height * 0.10);
+      normDenominator = (face.boundingBox.height * 0.25).abs();
+    } else {
+      baselineY = face.boundingBox.top + face.boundingBox.height * 0.55;
+      normDenominator = (face.boundingBox.height * 0.25).abs();
+    }
+
+    if (normDenominator < 1.0) {
+      normDenominator = 1.0;
+    }
+
+    // y는 아래로 갈수록 커짐. 코너가 기준선보다 아래로 내려가면 양수 → 슬픈 표정
+    final rawDelta = (avgCornerY - baselineY);
+    final normalized = (rawDelta / normDenominator).clamp(0.0, 1.0);
+    sadScore.value = normalized;
+    // 디버그 출력
+    // ignore: avoid_print
+    print(
+      'sadScore rawDelta=${rawDelta.toStringAsFixed(2)} norm=${normDenominator.toStringAsFixed(2)} score=${sadScore.value.toStringAsFixed(2)}',
+    );
+  }
+
+  void _updateExpressionScores(Face face) {
+    _calculateSmileScore(face);
+    _calculateSadScore(face);
+  }
+
+  void setActiveExpression(String expression) {
+    activeExpression.value = expression; // 'smile' or 'sad'
   }
 
   void _disposeController() {

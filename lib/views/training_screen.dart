@@ -5,14 +5,20 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../controllers/camera_controller.dart' as camera_ctrl;
 import '../utils/constants.dart';
+import '../models/expression_type.dart';
 import 'camera_preview_widget.dart';
 import 'score_display_widget.dart';
 import 'feedback_widget.dart';
 
 class TrainingScreen extends StatefulWidget {
   final CameraDescription camera;
+  final ExpressionType expressionType;
 
-  const TrainingScreen({super.key, required this.camera});
+  const TrainingScreen({
+    super.key,
+    required this.camera,
+    this.expressionType = ExpressionType.smile,
+  });
 
   @override
   State<TrainingScreen> createState() => _TrainingScreenState();
@@ -56,6 +62,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
     if (!_cameraController.isStreaming.value) {
       await _cameraController.startStream();
     }
+    if (!mounted) return;
     setState(() {
       _isTraining = true;
     });
@@ -65,6 +72,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
     if (_cameraController.isStreaming.value) {
       await _cameraController.stopStream();
     }
+    if (!mounted) return;
     setState(() {
       _isTraining = false;
     });
@@ -72,11 +80,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isSad = widget.expressionType == ExpressionType.sad;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          '스마트 표정 훈련기',
+          isSad ? '슬픈 표정 진척도' : '스마트 표정 훈련기',
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -161,12 +170,15 @@ class _TrainingScreenState extends State<TrainingScreen> {
               child: Column(
                 children: [
                   // 점수 표시
-                  Obx(
-                    () => ScoreDisplayWidget(
-                      score: _cameraController.smileScore.value,
+                  Obx(() {
+                    final score = isSad
+                        ? _cameraController.sadScore.value
+                        : _cameraController.smileScore.value;
+                    return ScoreDisplayWidget(
+                      score: score,
                       isTraining: _isTraining,
-                    ),
-                  ),
+                    );
+                  }),
 
                   const SizedBox(height: AppSizes.md),
 
@@ -219,7 +231,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
   @override
   void dispose() {
-    _stopTraining();
+    // dispose 단계에서는 상태 변경을 하지 않고 스트림만 안전하게 중지
+    if (_cameraController.isStreaming.value) {
+      _cameraController.stopStream();
+    }
     super.dispose();
   }
 }
