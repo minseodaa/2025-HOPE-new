@@ -1,1 +1,1 @@
-enum ExpressionType { smile, sad }
+enum ExpressionType { smile, sad, neutral }

@@ -6,11 +6,15 @@ import '../utils/constants.dart';
 class ScoreDisplayWidget extends StatelessWidget {
   final double score;
   final bool isTraining;
+  final String? label; // 기본: '진척도'
+  final bool neutralMode; // 무표정 전용 메시지/색상 유지 여부
 
   const ScoreDisplayWidget({
     super.key,
     required this.score,
     required this.isTraining,
+    this.label,
+    this.neutralMode = false,
   });
 
   @override
@@ -36,7 +40,7 @@ class ScoreDisplayWidget extends StatelessWidget {
         children: [
           // 점수 라벨
           Text(
-            '진척도',
+            label ?? '진척도',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 16,
@@ -149,6 +153,19 @@ class ScoreDisplayWidget extends StatelessWidget {
   }
 
   String _getScoreMessage(double score) {
+    if (neutralMode) {
+      // 무표정 전용 문구
+      if (score >= 0.9) return '완벽한 무표정 유지! 🎯';
+      if (score >= 0.8) return '아주 안정적이에요! 👍';
+      if (score >= 0.7) return '좋아요, 그대로 유지하세요.';
+      if (score >= 0.6) return '살짝 힘을 빼고 안정적으로.';
+      if (score >= 0.5) return '조금만 더 힘을 빼볼까요?';
+      if (score >= 0.4) return '입 주변 움직임을 줄여보세요.';
+      if (score >= 0.2) return '표정 근육의 긴장을 풀어보세요.';
+      return '호흡을 고르고 힘을 천천히 빼보세요.';
+    }
+
+    // 기존(미소) 문구
     if (score >= 0.9) {
       return '완벽한 미소! 🎉';
     } else if (score >= 0.8) {

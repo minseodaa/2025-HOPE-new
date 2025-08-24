@@ -87,6 +87,33 @@ class ExpressionSelectScreen extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: AppSizes.md),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _navigate(context, ExpressionType.neutral),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: AppColors.surface,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSizes.lg,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    child: const Text(
+                      '무표정 짓기',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

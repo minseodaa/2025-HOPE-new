@@ -81,11 +81,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
   @override
   Widget build(BuildContext context) {
     final isSad = widget.expressionType == ExpressionType.sad;
+    final isNeutral = widget.expressionType == ExpressionType.neutral;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          isSad ? '슬픈 표정 진척도' : '스마트 표정 훈련기',
+          isSad ? '슬픈 표정 진척도' : (isNeutral ? '무표정 유지 훈련' : '스마트 표정 훈련기'),
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -120,6 +121,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
                       controller: _cameraController.controller!,
                       isFaceDetected: _cameraController.isFaceDetected.value,
                       detectedFaces: _cameraController.detectedFaces,
+                      neutralStateProvider: isNeutral
+                          ? (() => _cameraController.neutralState.value)
+                          : null,
+                      debugNeutral: isNeutral
+                          ? _cameraController.neutralDebugEnabled.value
+                          : false,
                     );
                   } else {
                     return Container(
@@ -171,6 +178,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
                 children: [
                   // 점수 표시
                   Obx(() {
+                    if (isNeutral) {
+                      return ScoreDisplayWidget(
+                        score: _cameraController.neutralScore.value,
+                        isTraining: _isTraining,
+                        label: '무표정 점수',
+                        neutralMode: true,
+                      );
+                    }
                     final score = isSad
                         ? _cameraController.sadScore.value
                         : _cameraController.smileScore.value;

@@ -7,6 +7,10 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../config/neutral_config.dart';
+import '../models/neutral_state.dart';
+import '../services/neutral_detector.dart';
+
 class AppCameraController extends GetxController {
   CameraController? _controller;
   CameraDescription? _camera;
@@ -31,6 +35,12 @@ class AppCameraController extends GetxController {
   final RxString errorMessage = ''.obs;
   final RxList<Face> detectedFaces = <Face>[].obs;
 
+  // Neutral detection state
+  final NeutralDetector _neutralDetector = NeutralDetector();
+  final Rx<NeutralState> neutralState = NeutralState.initial().obs;
+  final RxBool neutralDebugEnabled = (NeutralConfig.debugPanelEnabled).obs;
+  final RxDouble neutralScore = 0.0.obs;
+
   CameraController? get controller => _controller;
   FaceDetector get faceDetector => _faceDetector;
 
@@ -38,6 +48,13 @@ class AppCameraController extends GetxController {
   void onInit() {
     super.onInit();
     _checkPermission();
+    _neutralDetector.onNeutralSuccess = (s) {
+      // 성공 시 로그/후속 처리 (필요시 콜백 연동)
+      // ignore: avoid_print
+      print(
+        'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
+      );
+    };
   }
 
   @override
@@ -81,6 +98,9 @@ class AppCameraController extends GetxController {
       isInitialized.value = true;
       errorMessage.value = '';
       print('카메라 초기화 성공: ${camera.name}');
+      // 스트림 시작 시점에 캘리브레이션 시작되도록 idle에서 첫 feed 처리
+      neutralState.value = NeutralState.initial();
+      neutralScore.value = 0.0;
     } catch (e) {
       errorMessage.value = '카메라 초기화에 실패했습니다: $e';
       isInitialized.value = false;
@@ -95,6 +115,7 @@ class AppCameraController extends GetxController {
     }
 
     try {
+      _neutralDetector.resetCalibration();
       await _controller!.startImageStream(_processImage);
       isStreaming.value = true;
       errorMessage.value = '';
@@ -112,6 +133,8 @@ class AppCameraController extends GetxController {
         isFaceDetected.value = false;
         detectedFaces.clear();
         smileScore.value = 0.0;
+        neutralState.value = NeutralState.initial();
+        neutralScore.value = 0.0;
       } catch (e) {
         errorMessage.value = '스트림 중지에 실패했습니다: $e';
       }
@@ -133,18 +156,33 @@ class AppCameraController extends GetxController {
         isFaceDetected.value = true;
         detectedFaces.value = faces;
         _updateExpressionScores(faces.first);
+        // Neutral feed
+        _neutralDetector.feed(faces.first);
+        neutralState.value = _neutralDetector.state;
+        _updateNeutralScore();
         print('얼굴 감지됨 - 미소 점수: ${smileScore.value}, 슬픔 점수: ${sadScore.value}');
       } else {
         isFaceDetected.value = false;
         detectedFaces.clear();
         smileScore.value = 0.0;
         sadScore.value = 0.0;
+        neutralState.value = neutralState.value.copyWith(
+          phase: NeutralPhase.idle,
+          metrics: neutralState.value.metrics.copyWith(holdSeconds: 0.0),
+        );
+        neutralScore.value = 0.0;
         print('얼굴 미감지');
       }
     } catch (e) {
       print('이미지 처리 오류: $e');
       errorMessage.value = '이미지 처리 중 오류가 발생했습니다: $e';
     }
+  }
+
+  void _updateNeutralScore() {
+    // 다른 표정들처럼 간단한 점수: 미소 확률의 보수
+    final double score = (1.0 - smileScore.value).clamp(0.0, 1.0);
+    neutralScore.value = score;
   }
 
   InputImage? _inputImageFromCameraImage(CameraImage image) {
