@@ -3,17 +3,23 @@ import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../utils/constants.dart';
+import '../models/neutral_state.dart';
+import '../painters/face_overlay.dart';
 
 class CameraPreviewWidget extends StatelessWidget {
   final CameraController controller;
   final bool isFaceDetected;
   final dynamic detectedFaces; // RxList<Face> 또는 List<Face>를 받을 수 있도록
+  final NeutralState Function()? neutralStateProvider;
+  final bool debugNeutral;
 
   const CameraPreviewWidget({
     super.key,
     required this.controller,
     required this.isFaceDetected,
     this.detectedFaces,
+    this.neutralStateProvider,
+    this.debugNeutral = false,
   });
 
   @override
@@ -42,6 +48,32 @@ class CameraPreviewWidget extends StatelessWidget {
               },
               imageSize: controller.value.previewSize ?? const Size(0, 0),
               cameraLensDirection: controller.description.lensDirection,
+              repaint: controller,
+            ),
+            child: const SizedBox.expand(),
+          ),
+
+        // 무표정 가이드/디버그 오버레이
+        if (isFaceDetected &&
+            detectedFaces != null &&
+            detectedFaces!.isNotEmpty)
+          CustomPaint(
+            painter: FaceOverlayPainter(
+              facesProvider: () {
+                try {
+                  if (detectedFaces is List<Face>) {
+                    return detectedFaces as List<Face>;
+                  }
+                  if (detectedFaces is Iterable) {
+                    return List<Face>.from(detectedFaces as Iterable);
+                  }
+                } catch (_) {}
+                return const <Face>[];
+              },
+              imageSize: controller.value.previewSize ?? const Size(0, 0),
+              cameraLensDirection: controller.description.lensDirection,
+              neutralStateProvider: neutralStateProvider,
+              debugEnabled: debugNeutral,
               repaint: controller,
             ),
             child: const SizedBox.expand(),
@@ -150,7 +182,6 @@ class FaceLandmarksPainter extends CustomPainter {
       ..strokeWidth = 2.0;
 
     for (final face in faces) {
-      // 바운딩 박스 변환 및 그리기 (cover 스케일과 크롭 오프셋 적용)
       final Rect raw = face.boundingBox;
       double left = dx + raw.left * scale;
       double top = dy + raw.top * scale;

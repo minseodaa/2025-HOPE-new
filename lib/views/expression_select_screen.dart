@@ -28,64 +28,68 @@ class ExpressionSelectScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppSizes.lg),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
               '어떤 표정을 연습할까요?',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: AppSizes.xl),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _navigate(context, ExpressionType.smile),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.surface,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSizes.lg,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                    ),
-                    child: const Text(
-                      '웃는 표정 짓기',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+            ElevatedButton(
+              onPressed: () => _navigate(context, ExpressionType.smile),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.surface,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.lg),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                const SizedBox(width: AppSizes.md),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _navigate(context, ExpressionType.sad),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      foregroundColor: AppColors.surface,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSizes.lg,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                    ),
-                    child: const Text(
-                      '슬픈 표정 짓기',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              ),
+              child: const Text('웃는 표정 짓기 😊', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: AppSizes.md),
+            ElevatedButton(
+              onPressed: () => _navigate(context, ExpressionType.sad),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: AppColors.surface,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.lg),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-              ],
+              ),
+              child: const Text('슬픈 표정 짓기 😢', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: AppSizes.md),
+            ElevatedButton(
+              onPressed: () => _navigate(context, ExpressionType.angry), // ## 화난 표정 버튼 추가 ##
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: AppColors.surface,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.lg),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              child: const Text('화난 표정 짓기 😠', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: AppSizes.md),
+            ElevatedButton(
+              onPressed: () => _navigate(context, ExpressionType.neutral),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: AppColors.surface,
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.lg),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              child: const Text('무표정 짓기 😐', style: TextStyle(fontSize: 18)),
             ),
           ],
         ),
