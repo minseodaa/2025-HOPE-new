@@ -14,6 +14,8 @@ class CameraPreviewWidget extends StatelessWidget {
   final bool debugNeutral;
   final int? setsCount;
   final String? timerText;
+  final String? sessionLabel; // '훈련', '휴식', '중지'
+  final String? bigCountdownText; // 마지막 5초 카운트 표시용
 
   const CameraPreviewWidget({
     super.key,
@@ -24,6 +26,8 @@ class CameraPreviewWidget extends StatelessWidget {
     this.debugNeutral = false,
     this.setsCount,
     this.timerText,
+    this.sessionLabel,
+    this.bigCountdownText,
   });
 
   @override
@@ -129,6 +133,60 @@ class CameraPreviewWidget extends StatelessWidget {
                   color: AppColors.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+        // 상단 중앙: 세션 상태 라벨
+        if (sessionLabel != null)
+          Positioned(
+            top: AppSizes.md,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.sm,
+                  vertical: AppSizes.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                child: Text(
+                  sessionLabel!,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // 중앙: 큰 카운트다운 (마지막 5초)
+        if (bigCountdownText != null && bigCountdownText!.isNotEmpty)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                alignment: Alignment.center,
+                color: Colors.black.withOpacity(0.15),
+                child: Text(
+                  bigCountdownText!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 96,
+                    fontWeight: FontWeight.w800,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 8,
+                        color: Colors.black54,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

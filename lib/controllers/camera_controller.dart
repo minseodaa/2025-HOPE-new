@@ -41,6 +41,8 @@ class AppCameraController extends GetxController {
   final RxBool neutralDebugEnabled = (NeutralConfig.debugPanelEnabled).obs;
   final RxDouble neutralScore = 0.0.obs;
   final RxInt neutralSets = 0.obs;
+  final RxBool sessionActive = false.obs; // 훈련 중 여부
+  final RxBool sessionRest = false.obs; // 휴식 중 여부
 
   CameraController? get controller => _controller;
   FaceDetector get faceDetector => _faceDetector;
@@ -50,10 +52,13 @@ class AppCameraController extends GetxController {
     super.onInit();
     _checkPermission();
     _neutralDetector.onNeutralSuccess = (s) {
-      print(
-        'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
-      );
-      neutralSets.value += 1;
+      if (sessionActive.value && !sessionRest.value) {
+        // 훈련 중에만 로그/세트 카운트 증가
+        print(
+          'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
+        );
+        neutralSets.value += 1;
+      }
     };
   }
 
@@ -255,5 +260,13 @@ class AppCameraController extends GetxController {
 
   void clearError() {
     errorMessage.value = '';
+  }
+
+  void setSessionActive(bool active) {
+    sessionActive.value = active;
+  }
+
+  void setSessionRest(bool rest) {
+    sessionRest.value = rest;
   }
 }
