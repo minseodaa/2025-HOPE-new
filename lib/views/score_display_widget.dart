@@ -22,26 +22,26 @@ class ScoreDisplayWidget extends StatelessWidget {
 
     return Column(
       children: [
-        Text('진척도', style: TextStyle(fontSize: 16)),
-        SizedBox(height: 8),
+        Text('진척도', style: TextStyle(fontSize: 12)),
+        SizedBox(height: 4),
         Stack(
           alignment: Alignment.center,
           children: [
             SizedBox(
-              width: 120,
-              height: 120,
+              width: 60,
+              height: 60,
               child: CircularProgressIndicator(
                 value: score,
-                strokeWidth: 8,
+                strokeWidth: 6,
                 backgroundColor: Colors.grey[300],
                 valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
-            Text('$percentage%', style: TextStyle(fontSize: 24, color: color)),
+            Text('$percentage%', style: TextStyle(fontSize: 16, color: color)),
           ],
         ),
-        SizedBox(height: 8),
-        Text(message, style: TextStyle(fontSize: 18, color: color)),
+        SizedBox(height: 4),
+        Text(message, style: TextStyle(fontSize: 12, color: color)),
       ],
     );
   }

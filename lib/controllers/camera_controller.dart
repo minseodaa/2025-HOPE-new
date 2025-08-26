@@ -40,6 +40,7 @@ class AppCameraController extends GetxController {
   final Rx<NeutralState> neutralState = NeutralState.initial().obs;
   final RxBool neutralDebugEnabled = (NeutralConfig.debugPanelEnabled).obs;
   final RxDouble neutralScore = 0.0.obs;
+  final RxInt neutralSets = 0.obs;
 
   CameraController? get controller => _controller;
   FaceDetector get faceDetector => _faceDetector;
@@ -52,6 +53,7 @@ class AppCameraController extends GetxController {
       print(
         'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
       );
+      neutralSets.value += 1;
     };
   }
 
@@ -115,6 +117,10 @@ class AppCameraController extends GetxController {
       errorMessage.value = '스트림 시작에 실패했습니다: $e';
       isStreaming.value = false;
     }
+  }
+
+  void resetNeutralSets() {
+    neutralSets.value = 0;
   }
 
   Future<void> stopStream() async {

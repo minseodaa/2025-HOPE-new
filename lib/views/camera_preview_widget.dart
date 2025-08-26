@@ -12,6 +12,8 @@ class CameraPreviewWidget extends StatelessWidget {
   final dynamic detectedFaces; // RxList<Face> 또는 List<Face>를 받을 수 있도록
   final NeutralState Function()? neutralStateProvider;
   final bool debugNeutral;
+  final int? setsCount;
+  final String? timerText;
 
   const CameraPreviewWidget({
     super.key,
@@ -20,6 +22,8 @@ class CameraPreviewWidget extends StatelessWidget {
     this.detectedFaces,
     this.neutralStateProvider,
     this.debugNeutral = false,
+    this.setsCount,
+    this.timerText,
   });
 
   @override
@@ -79,6 +83,57 @@ class CameraPreviewWidget extends StatelessWidget {
             child: const SizedBox.expand(),
           ),
 
+        // 좌상단: 세트 수 표시
+        if (setsCount != null)
+          Positioned(
+            top: AppSizes.md,
+            left: AppSizes.md,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.sm,
+                vertical: AppSizes.xs,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surface.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border: Border.all(color: AppColors.accent.withOpacity(0.6)),
+              ),
+              child: Text(
+                '세트 ${setsCount}',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+        // 우상단: 타이머 표시
+        if (timerText != null)
+          Positioned(
+            top: AppSizes.md,
+            right: AppSizes.md,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.sm,
+                vertical: AppSizes.xs,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surface.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+              child: Text(
+                timerText!,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
         // 얼굴 감지 오버레이
         if (!isFaceDetected)
           Container(
@@ -110,7 +165,7 @@ class CameraPreviewWidget extends StatelessWidget {
         // 얼굴 감지 표시
         if (isFaceDetected)
           Positioned(
-            top: AppSizes.md,
+            top: timerText != null ? (AppSizes.md + 36) : AppSizes.md,
             right: AppSizes.md,
             child: Container(
               padding: const EdgeInsets.symmetric(
