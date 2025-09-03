@@ -12,7 +12,15 @@ class CameraPreviewWidget extends StatelessWidget {
   final dynamic detectedFaces;
   final NeutralState Function()? neutralStateProvider;
   final bool debugNeutral;
+
+  // ## 병합: 점수 파라미터 (버전 1) ##
   final double score;
+
+  // ## 병합: 타이머 및 세션 정보 파라미터 (버전 2) ##
+  final int? setsCount;
+  final String? timerText;
+  final String? sessionLabel; // '훈련', '휴식', '중지'
+  final String? bigCountdownText; // 마지막 5초 카운트 표시용
 
   const CameraPreviewWidget({
     super.key,
@@ -22,24 +30,29 @@ class CameraPreviewWidget extends StatelessWidget {
     this.neutralStateProvider,
     this.debugNeutral = false,
     this.score = 0.0,
+    this.setsCount,
+    this.timerText,
+    this.sessionLabel,
+    this.bigCountdownText,
   });
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      // ## 수정: Stack의 정렬 기준을 중앙으로 설정 ##
       alignment: Alignment.center,
       children: [
         // ## 수정: FittedBox를 사용하여 화면을 꽉 채우도록 변경 ##
         if (controller.value.isInitialized)
-          ClipRect( // FittedBox가 확대시킨 위젯의 바깥 부분을 잘라냅니다.
-            child: FittedBox(
-              fit: BoxFit.cover, // виджет을 부모 위젯에 꽉 채웁니다 (비율 유지, 일부 잘릴 수 있음).
-              child: SizedBox(
-                // 카메라 영상의 원본 크기(가로/세로 전환)로 SizedBox를 만듭니다.
-                width: controller.value.previewSize!.height,
-                height: controller.value.previewSize!.width,
-                child: CameraPreview(controller),
+          SizedBox.expand( // Stack의 모든 공간을 차지하도록 함
+            child: ClipRect( // FittedBox가 확대시킨 위젯의 바깥 부분을 잘라냄
+              child: FittedBox(
+                fit: BoxFit.cover, // 자식의 비율을 유지하면서 부모에 꽉 채움 (가장 중요!)
+                child: SizedBox(
+                  // 카메라 영상의 원본 비율대로 크기를 지정
+                  width: controller.value.previewSize!.height,
+                  height: controller.value.previewSize!.width,
+                  child: CameraPreview(controller),
+                ),
               ),
             ),
           ),
@@ -63,7 +76,7 @@ class CameraPreviewWidget extends StatelessWidget {
               },
               imageSize: controller.value.previewSize ?? const Size(0, 0),
               cameraLensDirection: controller.description.lensDirection,
-              score: score,
+              score: score, // ## 병합: 점수 전달 (버전 1) ##
               repaint: controller,
             ),
             child: const SizedBox.expand(),
@@ -95,6 +108,111 @@ class CameraPreviewWidget extends StatelessWidget {
             child: const SizedBox.expand(),
           ),
 
+        // ## 병합: 좌상단 세트 수 표시 (버전 2) ##
+        if (setsCount != null)
+          Positioned(
+            top: AppSizes.md,
+            left: AppSizes.md,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.sm,
+                vertical: AppSizes.xs,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surface.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border: Border.all(color: AppColors.accent.withOpacity(0.6)),
+              ),
+              child: Text(
+                '세트 $setsCount',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+        // ## 병합: 우상단 타이머 표시 (버전 2) ##
+        if (timerText != null)
+          Positioned(
+            top: AppSizes.md,
+            right: AppSizes.md,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.sm,
+                vertical: AppSizes.xs,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surface.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+              child: Text(
+                timerText!,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+        // ## 병합: 상단 중앙 세션 상태 라벨 (버전 2) ##
+        if (sessionLabel != null)
+          Positioned(
+            top: AppSizes.md,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.sm,
+                  vertical: AppSizes.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                child: Text(
+                  sessionLabel!,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // ## 병합: 중앙 큰 카운트다운 (버전 2) ##
+        if (bigCountdownText != null && bigCountdownText!.isNotEmpty)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                alignment: Alignment.center,
+                color: Colors.black.withOpacity(0.15),
+                child: Text(
+                  bigCountdownText!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 96,
+                    fontWeight: FontWeight.w800,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 8,
+                        color: Colors.black54,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
         // 얼굴 감지 오버레이
         if (!isFaceDetected)
           Container(
@@ -123,10 +241,10 @@ class CameraPreviewWidget extends StatelessWidget {
             ),
           ),
 
-        // 얼굴 감지 표시
+        // 얼굴 감지 표시 (타이머가 있을 때 위치 조정)
         if (isFaceDetected)
           Positioned(
-            top: AppSizes.md,
+            top: timerText != null ? (AppSizes.md + 36) : AppSizes.md,
             right: AppSizes.md,
             child: Container(
               padding: const EdgeInsets.symmetric(
@@ -159,7 +277,6 @@ class CameraPreviewWidget extends StatelessWidget {
   }
 }
 
-// FaceLandmarksPainter 클래스는 변경사항 없습니다.
 class FaceLandmarksPainter extends CustomPainter {
   final List<Face> Function() facesProvider;
   final Size imageSize;

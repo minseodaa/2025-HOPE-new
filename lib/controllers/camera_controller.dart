@@ -31,7 +31,7 @@ class AppCameraController extends GetxController {
   final RxBool isFaceDetected = false.obs;
   final RxDouble smileScore = 0.0.obs;
   final RxDouble sadScore = 0.0.obs;
-  final RxDouble angryScore = 0.0.obs; // ## 1. angryScore 변수 추가 ##
+  final RxDouble angryScore = 0.0.obs;
   final RxString activeExpression = 'smile'.obs;
   final RxString errorMessage = ''.obs;
   final RxList<Face> detectedFaces = <Face>[].obs;
@@ -41,6 +41,11 @@ class AppCameraController extends GetxController {
   final RxBool neutralDebugEnabled = (NeutralConfig.debugPanelEnabled).obs;
   final RxDouble neutralScore = 0.0.obs;
 
+  // ## 병합: 세션 관리 변수 추가 ##
+  final RxInt neutralSets = 0.obs;
+  final RxBool sessionActive = false.obs; // 훈련 중 여부
+  final RxBool sessionRest = false.obs; // 휴식 중 여부
+
   CameraController? get controller => _controller;
   FaceDetector get faceDetector => _faceDetector;
 
@@ -48,10 +53,15 @@ class AppCameraController extends GetxController {
   void onInit() {
     super.onInit();
     _checkPermission();
+    // ## 병합: 세션 상태에 따라 세트 수를 증가시키는 로직으로 변경 ##
     _neutralDetector.onNeutralSuccess = (s) {
-      print(
-        'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
-      );
+      if (sessionActive.value && !sessionRest.value) {
+        // 훈련 중에만 로그/세트 카운트 증가
+        print(
+          'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
+        );
+        neutralSets.value += 1;
+      }
     };
   }
 
@@ -125,8 +135,8 @@ class AppCameraController extends GetxController {
         isFaceDetected.value = false;
         detectedFaces.clear();
         smileScore.value = 0.0;
-        sadScore.value = 0.0; // sadScore 초기화 추가
-        angryScore.value = 0.0; // ## 4. angryScore 초기화 추가 ##
+        sadScore.value = 0.0;
+        angryScore.value = 0.0;
         neutralState.value = NeutralState.initial();
         neutralScore.value = 0.0;
       } catch (e) {
@@ -154,7 +164,7 @@ class AppCameraController extends GetxController {
         detectedFaces.clear();
         smileScore.value = 0.0;
         sadScore.value = 0.0;
-        angryScore.value = 0.0; // ## 얼굴 미감지 시 angryScore 초기화 ##
+        angryScore.value = 0.0;
         neutralState.value = neutralState.value.copyWith(
           phase: NeutralPhase.idle,
           metrics: neutralState.value.metrics.copyWith(holdSeconds: 0.0),
@@ -209,39 +219,28 @@ class AppCameraController extends GetxController {
     smileScore.value = face.smilingProbability?.clamp(0.0, 1.0) ?? 0.0;
   }
 
-  // ## 수정: 슬픈 표정 점수 계산 로직 추가 ##
+  // ## 병합: 슬픈 표정 점수 계산 로직 ##
   void _calculateSadScore(Face face) {
-    // 입 주변 랜드마크 위치 가져오기
     final leftMouth = face.landmarks[FaceLandmarkType.leftMouth]?.position;
     final rightMouth = face.landmarks[FaceLandmarkType.rightMouth]?.position;
     final bottomMouth = face.landmarks[FaceLandmarkType.bottomMouth]?.position;
 
-    // 랜드마크가 없으면 점수 계산 불가
     if (leftMouth == null || rightMouth == null || bottomMouth == null) {
       sadScore.value = 0.0;
       return;
     }
 
-    // 1. 입꼬리가 아랫입술 중앙보다 얼마나 내려갔는지 계산
-    // y 좌표는 아래로 갈수록 값이 커집니다.
     final mouthCornerY = (leftMouth.y + rightMouth.y) / 2.0;
     final bottomMouthY = bottomMouth.y;
-
-    // 얼굴 크기에 따라 정규화하여 일관된 값 얻기
     final droop = (mouthCornerY - bottomMouthY) / (face.boundingBox.height * 0.1);
     final droopScore = droop.clamp(0.0, 1.0);
 
-    // 2. 웃음기가 없을수록 슬픔 점수 증가
     final smileProb = face.smilingProbability ?? 0.0;
     final noSmileScore = 1.0 - smileProb;
 
-    // 3. 두 점수를 가중 평균하여 최종 점수 계산
     final finalScore = (droopScore * 0.7 + noSmileScore * 0.3);
-
-    // 점수 변화를 더 분명하게 하기 위해 가중치를 곱하고 0.0 ~ 1.0 사이로 조정
     sadScore.value = (finalScore * 1.5).clamp(0.0, 1.0);
   }
-
 
   void _calculateAngryScore(Face face) {
     final double? leftEyeOpen = face.leftEyeOpenProbability;
@@ -278,5 +277,18 @@ class AppCameraController extends GetxController {
 
   void clearError() {
     errorMessage.value = '';
+  }
+
+  // ## 병합: 세션 관리 메소드 추가 ##
+  void resetNeutralSets() {
+    neutralSets.value = 0;
+  }
+
+  void setSessionActive(bool active) {
+    sessionActive.value = active;
+  }
+
+  void setSessionRest(bool rest) {
+    sessionRest.value = rest;
   }
 }

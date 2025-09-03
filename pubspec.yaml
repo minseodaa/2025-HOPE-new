@@ -50,6 +50,12 @@ dependencies:
   # 애니메이션
   flutter_animate: ^4.2.0+1
 
+  # 로컬 저장소 (결과 기록 저장)
+  shared_preferences: ^2.2.2
+
+  # 날짜 포맷
+  intl: ^0.19.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

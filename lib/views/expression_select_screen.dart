@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:get/get.dart';
@@ -5,6 +6,7 @@ import 'package:get/get.dart';
 import '../models/expression_type.dart';
 import '../utils/constants.dart';
 import 'training_screen.dart';
+import 'history_screen.dart';
 
 class ExpressionSelectScreen extends StatelessWidget {
   final CameraDescription camera;
@@ -67,7 +69,8 @@ class ExpressionSelectScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSizes.md),
             ElevatedButton(
-              onPressed: () => _navigate(context, ExpressionType.angry), // ## 화난 표정 버튼 추가 ##
+              onPressed: () =>
+                  _navigate(context, ExpressionType.angry), // ## 화난 표정 버튼 추가 ##
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
                 foregroundColor: AppColors.surface,
@@ -90,6 +93,21 @@ class ExpressionSelectScreen extends StatelessWidget {
                 ),
               ),
               child: const Text('무표정 짓기 😐', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: AppSizes.xl),
+            OutlinedButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const HistoryScreen())),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textPrimary,
+                side: const BorderSide(color: AppColors.textSecondary),
+                padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              child: const Text('기록 보기', style: TextStyle(fontSize: 16)),
             ),
           ],
         ),
