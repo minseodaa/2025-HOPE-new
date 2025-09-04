@@ -16,7 +16,7 @@ class HistoryScreen extends StatelessWidget {
         centerTitle: true,
       ),
       body: FutureBuilder<List<TrainingRecord>>(
-        future: TrainingRecordService().loadAll(),
+        future: TrainingRecordService().getAllRecords(),
         initialData: const <TrainingRecord>[],
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

@@ -9,39 +9,9 @@ import '../models/expression_type.dart';
 import 'camera_preview_widget.dart';
 import 'score_display_widget.dart';
 import 'feedback_widget.dart';
-import 'training_log_screen.dart'; // training_log_screen.dart 대신 TrainingResultScreen을 사용한다고 가정
+import 'training_result_screen.dart'; // ## 수정: 새로 만든 결과 페이지 import ##
 
-// TrainingResultScreen이 training_log_screen.dart로 이름이 변경되었다고 가정하고 import 경로 수정
-// 만약 파일명이 다르다면 이 부분을 실제 파일명으로 수정해주세요.
-// 예: import 'training_log_screen.dart';
-
-// 임시 TrainingResultScreen 클래스 (실제 파일이 있을 경우 이 부분은 삭제)
-class TrainingResultScreen extends StatelessWidget {
-  final ExpressionType expressionType;
-  final double finalScore;
-  final int totalSets;
-
-  const TrainingResultScreen({
-    super.key,
-    required this.expressionType,
-    required this.finalScore,
-    required this.totalSets
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("훈련 결과")),
-      body: Center(
-        child: Text(
-          '훈련 완료!\n표정: $expressionType\n점수: ${(finalScore * 100).toStringAsFixed(1)}%',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-}
-
+// ## 삭제: 파일 내부에 있던 임시 TrainingResultScreen 클래스 제거 ##
 
 enum _SessionPhase { idle, training, rest, done }
 
@@ -155,7 +125,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
         _cameraController.setSessionActive(false);
         _cameraController.setSessionRest(false);
         _showInfo('훈련 완료! 수고하셨어요 👍', bg: AppColors.success);
-        // 결과 화면으로 이동
+
         final double finalScore;
         switch (widget.expressionType) {
           case ExpressionType.smile:
@@ -175,11 +145,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
           _navigatedToResult = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            // Get.to()를 사용하여 페이지 이동
-            Get.to(() => TrainingResultScreen(
+            // ## 수정: '당일 결과' 페이지로 이동 ##
+            Get.off(() => TrainingResultScreen( // Get.off()로 현재 훈련 화면은 닫음
               expressionType: widget.expressionType,
               finalScore: finalScore,
-              totalSets: _totalSets,
             ));
           });
         }
@@ -298,14 +267,13 @@ class _TrainingScreenState extends State<TrainingScreen> {
               ),
             ),
           ),
-          // ## 수정: 하단 UI 영역 ##
           Expanded(
             flex: 2,
             child: Container(
               margin: const EdgeInsets.all(AppSizes.md),
-              child: SingleChildScrollView( // ## 추가: 스크롤 가능하도록 변경
+              child: SingleChildScrollView(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center, // ## 추가: 가운데 정렬
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Obx(() {
                       final double score;
@@ -362,7 +330,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
                       ),
                       child: Text(_isTraining ? '훈련 중지' : '훈련 시작'),
                     ),
-                    // const Spacer(), // ## 삭제: Spacer 제거
                   ],
                 ),
               ),

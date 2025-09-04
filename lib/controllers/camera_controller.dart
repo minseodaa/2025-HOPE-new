@@ -1,3 +1,5 @@
+// ## 파일: lib/controllers/camera_controller.dart ##
+
 import 'dart:async';
 import 'dart:ui';
 import 'dart:io';
@@ -25,6 +27,10 @@ class AppCameraController extends GetxController {
     ),
   );
 
+  // ## 추가: 프레임 처리를 위한 변수 ##
+  int _frameCounter = 0;
+  final int _frameSkipRate = 3; // 3프레임당 1번만 처리
+
   final RxBool isInitialized = false.obs;
   final RxBool isStreaming = false.obs;
   final RxBool hasPermission = false.obs;
@@ -41,10 +47,9 @@ class AppCameraController extends GetxController {
   final RxBool neutralDebugEnabled = (NeutralConfig.debugPanelEnabled).obs;
   final RxDouble neutralScore = 0.0.obs;
 
-  // ## 병합: 세션 관리 변수 추가 ##
   final RxInt neutralSets = 0.obs;
-  final RxBool sessionActive = false.obs; // 훈련 중 여부
-  final RxBool sessionRest = false.obs; // 휴식 중 여부
+  final RxBool sessionActive = false.obs;
+  final RxBool sessionRest = false.obs;
 
   CameraController? get controller => _controller;
   FaceDetector get faceDetector => _faceDetector;
@@ -53,10 +58,8 @@ class AppCameraController extends GetxController {
   void onInit() {
     super.onInit();
     _checkPermission();
-    // ## 병합: 세션 상태에 따라 세트 수를 증가시키는 로직으로 변경 ##
     _neutralDetector.onNeutralSuccess = (s) {
       if (sessionActive.value && !sessionRest.value) {
-        // 훈련 중에만 로그/세트 카운트 증가
         print(
           'Neutral success! hold=${s.metrics.holdSeconds.toStringAsFixed(1)}s',
         );
@@ -146,6 +149,12 @@ class AppCameraController extends GetxController {
   }
 
   Future<void> _processImage(CameraImage image) async {
+    // 프레임 건너뛰기
+    _frameCounter++;
+    if (_frameCounter % _frameSkipRate != 0) {
+      return; // 현재 프레임 건너뛰기
+    }
+
     try {
       final InputImage? inputImage = _inputImageFromCameraImage(image);
       if (inputImage == null) return;
@@ -153,10 +162,18 @@ class AppCameraController extends GetxController {
       final faces = await _faceDetector.processImage(inputImage);
 
       if (faces.isNotEmpty) {
+        // 가장 큰 랜드마크 박스만 선택
+        Face largestFace = faces.first;
+        if (faces.length > 1) {
+          largestFace = faces.reduce((a, b) =>
+          (a.boundingBox.width * a.boundingBox.height) >
+              (b.boundingBox.width * b.boundingBox.height) ? a : b);
+        }
+
         isFaceDetected.value = true;
-        detectedFaces.value = faces;
-        _updateExpressionScores(faces.first);
-        _neutralDetector.feed(faces.first);
+        detectedFaces.value = [largestFace]; // 가장 큰 얼굴 하나만 리스트에 담음
+        _updateExpressionScores(largestFace);
+        _neutralDetector.feed(largestFace);
         neutralState.value = _neutralDetector.state;
         _updateNeutralScore();
       } else {
@@ -219,26 +236,32 @@ class AppCameraController extends GetxController {
     smileScore.value = face.smilingProbability?.clamp(0.0, 1.0) ?? 0.0;
   }
 
-  // ## 병합: 슬픈 표정 점수 계산 로직 ##
-  void _calculateSadScore(Face face) {
-    final leftMouth = face.landmarks[FaceLandmarkType.leftMouth]?.position;
-    final rightMouth = face.landmarks[FaceLandmarkType.rightMouth]?.position;
-    final bottomMouth = face.landmarks[FaceLandmarkType.bottomMouth]?.position;
 
-    if (leftMouth == null || rightMouth == null || bottomMouth == null) {
+  void _calculateSadScore(Face face) {
+    final lowerLipTopContour = face.contours[FaceContourType.lowerLipTop];
+
+    if (lowerLipTopContour == null || lowerLipTopContour.points.length < 5) {
       sadScore.value = 0.0;
       return;
     }
 
-    final mouthCornerY = (leftMouth.y + rightMouth.y) / 2.0;
-    final bottomMouthY = bottomMouth.y;
-    final droop = (mouthCornerY - bottomMouthY) / (face.boundingBox.height * 0.1);
-    final droopScore = droop.clamp(0.0, 1.0);
+    final points = lowerLipTopContour.points;
+
+    final leftCorner = points.first;
+    final rightCorner = points.last;
+    final centerPoint = points[points.length ~/ 2];
+
+    final avgCornerY = (leftCorner.y + rightCorner.y) / 2.0;
+
+    final droop = avgCornerY - centerPoint.y;
+
+    final droopScore = (droop / (face.boundingBox.height * 0.07)).clamp(0.0, 1.0);
 
     final smileProb = face.smilingProbability ?? 0.0;
     final noSmileScore = 1.0 - smileProb;
 
     final finalScore = (droopScore * 0.7 + noSmileScore * 0.3);
+
     sadScore.value = (finalScore * 1.5).clamp(0.0, 1.0);
   }
 
@@ -279,7 +302,6 @@ class AppCameraController extends GetxController {
     errorMessage.value = '';
   }
 
-  // ## 병합: 세션 관리 메소드 추가 ##
   void resetNeutralSets() {
     neutralSets.value = 0;
   }

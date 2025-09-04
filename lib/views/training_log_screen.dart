@@ -1,123 +1,89 @@
-import 'package:flutter/material.dart';
-import '../utils/constants.dart';
+// ## 파일: lib/views/training_log_screen.dart ##
 
-class TrainingLogScreen extends StatelessWidget {
-  const TrainingLogScreen({super.key});
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import '../models/expression_type.dart';
+import '../models/training_record.dart';
+import '../services/training_record_service.dart';
+import '../utils/constants.dart';
+import 'expression_select_screen.dart';
+
+class TrainingLogScreen extends StatefulWidget {
+  final ExpressionType expressionType;
+
+  const TrainingLogScreen({super.key, required this.expressionType});
+
+  @override
+  State<TrainingLogScreen> createState() => _TrainingLogScreenState();
+}
+
+class _TrainingLogScreenState extends State<TrainingLogScreen> {
+  final TrainingRecordService _recordService = TrainingRecordService();
+  late Future<List<TrainingRecord>> _recordsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordsFuture = _recordService.getRecordsForType(widget.expressionType);
+  }
+
+  String _getTitle() {
+    // ExpressionType enum에 따라 제목을 반환하는 로직 (예시)
+    switch(widget.expressionType) {
+      case ExpressionType.smile: return '웃는 표정';
+      case ExpressionType.sad: return '슬픈 표정';
+      case ExpressionType.angry: return '화난 표정';
+      case ExpressionType.neutral: return '무표정';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          '훈련 기록',
-          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
+        title: Text('세부 기록: ${_getTitle()}', style: const TextStyle(color: AppColors.textPrimary)),
         backgroundColor: AppColors.surface,
-        elevation: 0.5,
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildOverallAverageCard(78), // 전체 평균 진척도 (예시 데이터)
-              const SizedBox(height: AppSizes.xl),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildExpressionCard(
-                      context,
-                      title: '웃는 표정',
-                      iconData: Icons.sentiment_satisfied_alt,
-                      color: AppColors.accent,
-                      progress: 85, // 예시 데이터
-                    ),
-                  ),
-                  const SizedBox(width: AppSizes.md),
-                  Expanded(
-                    child: _buildExpressionCard(
-                      context,
-                      title: '화난 표정',
-                      iconData: Icons.sentiment_very_dissatisfied,
-                      color: AppColors.error,
-                      progress: 62, // 예시 데이터
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSizes.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildExpressionCard(
-                      context,
-                      title: '슬픈 표정',
-                      iconData: Icons.sentiment_dissatisfied,
-                      color: AppColors.secondary,
-                      progress: 78, // 예시 데이터
-                    ),
-                  ),
-                  const SizedBox(width: AppSizes.md),
-                  Expanded(
-                    child: _buildExpressionCard(
-                      context,
-                      title: '무표정',
-                      iconData: Icons.sentiment_neutral,
-                      color: AppColors.textSecondary,
-                      progress: 95, // 예시 데이터
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 전체 진척도 평균을 표시하는 카드 위젯
-  Widget _buildOverallAverageCard(int averageProgress) {
-    return Card(
-      elevation: 2.0,
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.lg, vertical: AppSizes.md),
+      body: Padding(
+        padding: const EdgeInsets.all(AppSizes.lg),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '전체 진척도의 평균',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () { /* 초기화 로직 (나중에 구현) */ },
-                  child: const Text('초기화'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    backgroundColor: AppColors.background,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSizes.sm),
-            Text(
-              '$averageProgress%',
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+            Text(_getTitle(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Divider(height: 30),
+            const Text('표정 진척도', style: TextStyle(fontSize: 18, color: AppColors.textSecondary)),
+            const SizedBox(height: AppSizes.xl),
+            Expanded(
+              child: FutureBuilder<List<TrainingRecord>>(
+                future: _recordsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('저장된 훈련 기록이 없습니다.'));
+                  }
+                  final records = snapshot.data!;
+                  // 날짜순으로 정렬
+                  records.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+                  return LineChart(
+                    _buildChartData(records),
+                  );
+                },
               ),
+            ),
+            const SizedBox(height: AppSizes.lg),
+            ElevatedButton(
+              onPressed: () {
+                // 스택의 맨 처음 페이지(표정 선택 화면)까지 모두 pop
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('훈련하러 가기'),
             ),
           ],
         ),
@@ -125,79 +91,68 @@ class TrainingLogScreen extends StatelessWidget {
     );
   }
 
-  // 각 표정별 기록을 표시하는 카드 위젯
-  Widget _buildExpressionCard(
-      BuildContext context, {
-        required String title,
-        required IconData iconData,
-        required Color color,
-        required int progress,
-      }) {
-    return Card(
-      elevation: 2.0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-      clipBehavior: Clip.antiAlias, // Card의 자식 위젯이 Card의 모양을 따르도록 함
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 가장 최근 훈련 사진 (현재는 아이콘으로 대체)
-          AspectRatio(
-            aspectRatio: 1.0, // 1:1 비율
-            child: Container(
-              color: color.withOpacity(0.1),
-              child: Icon(iconData, size: 60, color: color),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(AppSizes.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: AppSizes.sm),
-                // 진척도 표시
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm, vertical: AppSizes.xs),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                      children: [
-                        const TextSpan(text: '최근 진척도: '),
-                        TextSpan(
-                          text: '$progress%',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: color),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSizes.md),
-                // 기록 보기 버튼
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () { /* '훈련 기록 상세' 페이지로 이동 (나중에 구현) */ },
-                    child: const Text('기록 보기'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.surface,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
+  LineChartData _buildChartData(List<TrainingRecord> records) {
+    List<FlSpot> spots = records.asMap().entries.map((entry) {
+      int index = entry.key;
+      TrainingRecord record = entry.value;
+      return FlSpot(index.toDouble(), record.score * 100);
+    }).toList();
+
+    return LineChartData(
+      minY: 0,
+      maxY: 100,
+
+      // 터치 이벤트 설정
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipItems: (touchedSpots) {
+            return touchedSpots.map((spot) {
+              final record = records[spot.x.toInt()];
+              return LineTooltipItem(
+                  '${DateFormat('M월 d일').format(record.timestamp)}\n진척도: ${record.score.toStringAsFixed(2)}%',
+                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  children: [
+                    // TODO: 여기에 이미지 위젯 추가
+                    // 예: WidgetSpan(child: Image.file(File(record.imagePath!)))
+                  ]
+              );
+            }).toList();
+          },
+        ),
       ),
+      // 그리드, 축, 타이틀 등 UI 설정
+      gridData: const FlGridData(show: true),
+      titlesData: FlTitlesData(
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 30,
+            interval: 1,
+            getTitlesWidget: (value, meta) {
+              int index = value.toInt();
+              if (index >= 0 && index < records.length) {
+                // x축에 날짜 표시 (간격을 봐서 일부만 표시하도록 조정 가능)
+                if(records.length > 5 && index % (records.length ~/ 5) != 0) return const SizedBox.shrink();
+                return Text(DateFormat('MM/dd').format(records[index].timestamp), style: const TextStyle(fontSize: 10));
+              }
+              return const Text('');
+            },
+          ),
+        ),
+        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      ),
+      borderData: FlBorderData(show: true),
+      lineBarsData: [
+        LineChartBarData(
+          spots: spots,
+          isCurved: true,
+          color: AppColors.primary,
+          barWidth: 4,
+          belowBarData: BarAreaData(show: true, color: AppColors.primary.withOpacity(0.2)),
+        ),
+      ],
     );
   }
 }
