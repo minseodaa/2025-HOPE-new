@@ -82,7 +82,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
         _remainingSeconds = 15;
       }
       _navigatedToResult = false;
-      _showInfo('훈련 시작 - $_currentSet세트/$_totalSets세트 (15초)', bg: AppColors.accent);
+      _showInfo(
+        '훈련 시작 - $_currentSet세트/$_totalSets세트 (15초)',
+        bg: AppColors.accent,
+      );
       _startTimer();
     } else {
       _cameraController.setSessionActive(false);
@@ -146,10 +149,13 @@ class _TrainingScreenState extends State<TrainingScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             // ## 수정: '당일 결과' 페이지로 이동 ##
-            Get.off(() => TrainingResultScreen( // Get.off()로 현재 훈련 화면은 닫음
-              expressionType: widget.expressionType,
-              finalScore: finalScore,
-            ));
+            Get.off(
+              () => TrainingResultScreen(
+                // Get.off()로 현재 훈련 화면은 닫음
+                expressionType: widget.expressionType,
+                finalScore: finalScore,
+              ),
+            );
           });
         }
       }
@@ -158,7 +164,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
       _phase = _SessionPhase.training;
       _remainingSeconds = 15;
       _cameraController.setSessionRest(false);
-      _showInfo('훈련 재개 - $_currentSet세트/$_totalSets세트 (15초)', bg: AppColors.accent);
+      _showInfo(
+        '훈련 재개 - $_currentSet세트/$_totalSets세트 (15초)',
+        bg: AppColors.accent,
+      );
     }
   }
 
@@ -190,7 +199,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
       appBar: AppBar(
         title: Text(
           _getTitle(),
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         backgroundColor: AppColors.surface,
         elevation: 0,
@@ -248,11 +260,11 @@ class _TrainingScreenState extends State<TrainingScreen> {
                       detectedFaces: _cameraController.detectedFaces,
                       score: score,
                       neutralStateProvider:
-                      widget.expressionType == ExpressionType.neutral
+                          widget.expressionType == ExpressionType.neutral
                           ? (() => _cameraController.neutralState.value)
                           : null,
                       debugNeutral:
-                      widget.expressionType == ExpressionType.neutral
+                          widget.expressionType == ExpressionType.neutral
                           ? _cameraController.neutralDebugEnabled.value
                           : false,
                       setsCount: _currentSet,
@@ -325,8 +337,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     ElevatedButton(
                       onPressed: _toggleTraining,
                       style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 15,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       child: Text(_isTraining ? '훈련 중지' : '훈련 시작'),
                     ),
