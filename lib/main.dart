@@ -9,6 +9,8 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'utils/constants.dart';
 import 'views/home_screen.dart';
+import 'views/login_screen.dart';
+import 'views/signup_screen.dart';
 
 void main() async {
   // Flutter 바인딩 초기화
@@ -38,22 +40,30 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Pretendard',
       ),
-      home: FutureBuilder<CameraDescription>(
-        future: _resolveSelectedCamera(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Scaffold(
-              body: Center(child: Text('카메라를 초기화할 수 없습니다.')),
-            );
-          }
-          return HomeScreen(camera: snapshot.data!);
-        },
-      ),
+      initialRoute: '/login',
+      getPages: [
+        GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(
+          name: '/home',
+          page: () => FutureBuilder<CameraDescription>(
+            future: _resolveSelectedCamera(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Scaffold(
+                  body: Center(child: Text('카메라를 초기화할 수 없습니다.')),
+                );
+              }
+              return HomeScreen(camera: snapshot.data!);
+            },
+          ),
+        ),
+        GetPage(name: '/signup', page: () => const SignupScreen()),
+      ],
       debugShowCheckedModeBanner: false,
     );
   }
