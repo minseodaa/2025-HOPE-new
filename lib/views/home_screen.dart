@@ -21,6 +21,15 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: AppColors.surface,
         centerTitle: true,
         elevation: 0,
+        actions: [
+          TextButton.icon(
+            onPressed: () => Get.offAllNamed('/login'),
+            label: const Text(''), //로그아웃
+            icon: const Icon(Icons.logout, size: 18),
+            style: TextButton.styleFrom(foregroundColor: AppColors.textPrimary),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(AppSizes.xl),
@@ -163,7 +172,6 @@ class _WeekCalendarState extends State<_WeekCalendar> {
         Row(
           children: days.map((d) {
             final bool isSelected = _selected == d;
-            final bool isToday = _stripTime(DateTime.now()) == d;
             return Expanded(
               child: Container(
                 height: 42,
