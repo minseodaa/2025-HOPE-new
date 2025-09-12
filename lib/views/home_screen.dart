@@ -1,11 +1,18 @@
+// ## 파일: lib/views/home_screen.dart ##
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:camera/camera.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
+import 'package:fl_chart/fl_chart.dart';
 
+import '../models/expression_type.dart';
+import '../models/training_record.dart';
+import '../services/training_record_service.dart';
 import '../utils/constants.dart';
 import 'expression_select_screen.dart';
-import 'history_screen.dart';
+import 'training_summary_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final CameraDescription camera;
@@ -22,57 +29,242 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
         actions: [
-          TextButton.icon(
+          IconButton(
             onPressed: () => Get.offAllNamed('/login'),
-            label: const Text(''), //로그아웃
-            icon: const Icon(Icons.logout, size: 18),
-            style: TextButton.styleFrom(foregroundColor: AppColors.textPrimary),
+            icon: const Icon(Icons.logout),
           ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSizes.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SectionHeader(title: '훈련모드'),
-            const SizedBox(height: AppSizes.md),
-            InkWell(
-              onTap: () => Get.to(() => ExpressionSelectScreen(camera: camera)),
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              child: Ink(
-                padding: const EdgeInsets.all(AppSizes.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
+      // 화면이 작아도 스크롤로 보이도록
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _SectionHeader(title: '훈련모드'),
+              const SizedBox(height: AppSizes.md),
+              InkWell(
+                onTap: () => Get.to(() => ExpressionSelectScreen(camera: camera)),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                child: Ink(
+                  padding: const EdgeInsets.all(AppSizes.lg),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(
+                      color: AppColors.textTertiary.withOpacity(0.2),
+                    ),
+                  ),
+                  child: _WeekCalendar(initialDate: DateTime.now()),
+                ),
+              ),
+              const SizedBox(height: AppSizes.xl),
+              const _SectionHeader(title: '훈련기록'),
+              const SizedBox(height: AppSizes.md),
+              // 고정 높이 그래프 카드
+              SizedBox(
+                height: 250,
+                child: InkWell(
+                  onTap: () => Get.to(() => const TrainingSummaryScreen()),
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(
-                    color: AppColors.textTertiary.withOpacity(0.2),
+                  child: Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        AppSizes.lg,
+                        AppSizes.lg,
+                        AppSizes.lg,
+                        AppSizes.sm,
+                      ),
+                      child: _OverallProgressChart(),
+                    ),
                   ),
                 ),
-                child: _WeekCalendar(initialDate: DateTime.now()),
               ),
-            ),
-            const SizedBox(height: AppSizes.xl),
-            _SectionHeader(title: '훈련기록'),
-            const SizedBox(height: AppSizes.md),
-            _BigCard(
-              icon: Icons.bar_chart_rounded,
-              title: '훈련기록 보기',
-              subtitle: '리스트로 최근 기록을 확인해요',
-              onTap: () => Get.to(() => const HistoryScreen()),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+// ------------------------------- 그래프 -------------------------------
+
+class _OverallProgressChart extends StatefulWidget {
+  const _OverallProgressChart();
+  @override
+  State<_OverallProgressChart> createState() => _OverallProgressChartState();
+}
+
+class _OverallProgressChartState extends State<_OverallProgressChart> {
+  final TrainingRecordService _recordService = TrainingRecordService();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TrainingRecord>>(
+      future: _recordService.getAllRecords(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('훈련 기록이 없습니다.'));
+        }
+
+        final records = snapshot.data!;
+        final recordsByDate = groupBy(records, (TrainingRecord r) => r.dateKey);
+
+        // 날짜별 평균(0~1)을 계산한 뒤 0~100으로 변환
+        final Map<DateTime, double> dailyAverages = {};
+        recordsByDate.forEach((dateKey, recordsOnDate) {
+          final date = DateFormat('yyyy-MM-dd').parse(dateKey);
+          double totalScore = 0;
+          for (var type in ExpressionType.values) {
+            final recordForType =
+            recordsOnDate.firstWhereOrNull((r) => r.expressionType == type);
+            totalScore += recordForType?.score ?? 0;
+          }
+          dailyAverages[date] =
+              (totalScore / ExpressionType.values.length) * 100.0;
+        });
+
+        final sortedDates = dailyAverages.keys.toList()..sort();
+
+        final List<FlSpot> spots = sortedDates.asMap().entries.map((entry) {
+          final idx = entry.key.toDouble();
+          final d = entry.value;
+          return FlSpot(idx, dailyAverages[d]!);
+        }).toList();
+
+        if (spots.isEmpty) {
+          return const Center(child: Text('표시할 기록이 없습니다.'));
+        }
+
+        // 날짜 라벨 간격(데이터가 많으면 2~3칸 간격으로)
+        final step = sortedDates.length > 14
+            ? 3
+            : (sortedDates.length > 7 ? 2 : 1);
+
+        return LineChart(
+          LineChartData(
+            minY: 0,
+            maxY: 100,
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: 25,
+              getDrawingHorizontalLine: (v) => FlLine(
+                strokeWidth: 0.5,
+                color: AppColors.textTertiary.withOpacity(0.2),
+              ),
+            ),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 28,
+                  interval: 25,
+                  getTitlesWidget: (value, meta) {
+                    final v = value.round();
+                    if (v % 25 != 0) return const SizedBox.shrink();
+                    return Text(
+                      '$v',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textTertiary,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 24,
+                  interval: 1,
+                  getTitlesWidget: (value, meta) {
+                    final idx = value.round();
+                    if (idx < 0 || idx >= sortedDates.length) {
+                      return const SizedBox.shrink();
+                    }
+                    if (idx % step != 0) return const SizedBox.shrink();
+                    final d = sortedDates[idx];
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        DateFormat('MM/dd').format(d), // x축: 날짜
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            lineTouchData: LineTouchData(
+              enabled: true,
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (touchedSpot) => AppColors.surface,  // ✅ 최신 fl_chart 대응
+                getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
+                  final idx = s.x.round().clamp(0, sortedDates.length - 1);
+                  final dateStr = DateFormat('yyyy-MM-dd').format(sortedDates[idx]);
+                  return LineTooltipItem(
+                    '$dateStr\n${s.y.toStringAsFixed(0)}%',
+                    const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: true,
+                color: AppColors.primary,
+                barWidth: 4,
+                isStrokeCapRound: true,
+                dotData: const FlDotData(show: true),
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withOpacity(0.25),
+                      AppColors.primary.withOpacity(0.0),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ------------------------------ 공통 UI -------------------------------
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader({required this.title});
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -95,9 +287,7 @@ class _SectionHeader extends StatelessWidget {
 
 class _WeekCalendar extends StatefulWidget {
   final DateTime initialDate;
-
   const _WeekCalendar({required this.initialDate});
-
   @override
   State<_WeekCalendar> createState() => _WeekCalendarState();
 }
@@ -116,7 +306,7 @@ class _WeekCalendarState extends State<_WeekCalendar> {
   DateTime _stripTime(DateTime d) => DateTime(d.year, d.month, d.day);
 
   DateTime _startOfWeek(DateTime d) {
-    final int delta = d.weekday % 7; // Sun=7 -> 0
+    final int delta = d.weekday % 7;
     return _stripTime(d.subtract(Duration(days: delta)));
   }
 
@@ -129,10 +319,7 @@ class _WeekCalendarState extends State<_WeekCalendar> {
   @override
   Widget build(BuildContext context) {
     final start = _startOfWeek(_focused);
-    final days = List<DateTime>.generate(
-      7,
-      (i) => start.add(Duration(days: i)),
-    );
+    final days = List<DateTime>.generate(7, (i) => start.add(Duration(days: i)));
     final monthLabel = DateFormat('y년 M월', 'ko').format(_focused);
 
     return Column(
@@ -140,32 +327,28 @@ class _WeekCalendarState extends State<_WeekCalendar> {
       children: [
         Row(
           children: [
-            Text(
-              monthLabel,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
+            Text(monthLabel,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             const Spacer(),
             IconButton(
-              icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: () => _changeWeek(-1),
-            ),
+                icon: const Icon(Icons.chevron_left_rounded),
+                onPressed: () => _changeWeek(-1)),
             IconButton(
-              icon: const Icon(Icons.chevron_right_rounded),
-              onPressed: () => _changeWeek(1),
-            ),
+                icon: const Icon(Icons.chevron_right_rounded),
+                onPressed: () => _changeWeek(1)),
           ],
         ),
         const SizedBox(height: AppSizes.sm),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+          children: const [
             _Dow('일'),
             _Dow('월'),
             _Dow('화'),
             _Dow('수'),
             _Dow('목'),
             _Dow('금'),
-            _Dow('토'),
+            _Dow('토')
           ],
         ),
         const SizedBox(height: AppSizes.sm),
@@ -231,79 +414,6 @@ class _Dow extends StatelessWidget {
             color: AppColors.textTertiary,
             fontWeight: FontWeight.w600,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BigCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _BigCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.xl),
-      child: Ink(
-        padding: const EdgeInsets.all(AppSizes.lg),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 32),
-            ),
-            const SizedBox(width: AppSizes.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textTertiary,
-            ),
-          ],
         ),
       ),
     );
