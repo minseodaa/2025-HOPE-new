@@ -429,16 +429,19 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
   Future<void> _uploadInitialExpressions() async {
     if (_isUploading) return;
     setState(() => _isUploading = true);
+
     try {
       final Uri uri = Uri.parse(
         '${AppConfig.apiBaseUrl}${AppConfig.firstfacePath()}',
       );
       final String body = jsonEncode(_uploadData);
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final http.Response res = await http.post(
         uri,
-        headers: const {
+        headers: {
           'accept': 'application/json',
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
         },
         body: body,
       );

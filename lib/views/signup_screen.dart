@@ -15,13 +15,14 @@ class _SignupScreenState extends State<SignupScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _passwordCheckController = TextEditingController();
+  final TextEditingController _passwordCheckController =
+      TextEditingController();
 
   bool _isObscure1 = true;
   bool _isObscure2 = true;
-  bool _isValid = false;          // 필드 유효성
-  bool _isLoading = false;        // 전체 로딩(버튼 비활성화용)
-  bool _sending = false;          // 중복확인/인증메일 발송 중
+  bool _isValid = false; // 필드 유효성
+  bool _isLoading = false; // 전체 로딩(버튼 비활성화용)
+  bool _sending = false; // 중복확인/인증메일 발송 중
   bool _verificationMailSent = false; // 인증메일 발송 완료 여부
 
   @override
@@ -47,10 +48,11 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool get _emailValid =>
       RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(_emailController.text.trim());
-  bool get _pwValid =>
-      RegExp(r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$')
-          .hasMatch(_passwordController.text);
-  bool get _pwMatch => _passwordController.text == _passwordCheckController.text;
+  bool get _pwValid => RegExp(
+    r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$',
+  ).hasMatch(_passwordController.text);
+  bool get _pwMatch =>
+      _passwordController.text == _passwordCheckController.text;
 
   /// 1단계: 이메일 중복 확인 + 인증 메일 발송
   Future<void> _checkDuplicateAndSendVerification() async {
@@ -88,25 +90,23 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  /// 2단계: 인증 완료 확인 후 최종 가입 완료 처리
+  /// 최종 가입 처리 (중복 확인/인증 메일 선행 없이도 시도)
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
       final auth = AuthService();
-      final verified = await auth.reloadAndCheckVerified();
-      if (!verified) {
-        _toast('아직 이메일 인증 전입니다. 인증 후 다시 눌러 주세요.');
-        return;
-      }
+      // 중복 확인/인증메일 발송 단계를 건너뛰더라도, 여기서 계정 생성 시도
+      await auth.createUserAndSendVerification(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-      await auth.finalizeAfterVerified();
-
-      // 초기 표정 측정 화면으로 이동
+      // 가입 직후 바로 다음 화면으로 이동 (이메일 인증은 선택적으로 진행)
       Get.offAllNamed('/initial-expression');
     } catch (e) {
-      _toast('회원가입 완료 처리 실패: $e');
+      _toast('회원가입 실패: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -116,8 +116,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canSendVerify = !_sending && !_isLoading; // 중복확인/인증메일 발송 버튼 활성화 조건
-    final canFinishSignUp =
-        _isValid && _verificationMailSent && !_isLoading; // 최종 회원가입 버튼 활성화 조건
+    final canFinishSignUp = _isValid && !_isLoading; // 중복 확인 없이도 가입 가능
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -135,8 +134,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     const SizedBox(height: 48),
                     Text(
                       '회원가입',
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w800, height: 1.25),
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
                     ),
 
                     const SizedBox(height: 16),
@@ -160,13 +161,15 @@ class _SignupScreenState extends State<SignupScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
                             onChanged: (_) => _updateValidity(),
                             validator: (v) {
                               final value = v?.trim() ?? '';
                               if (value.isEmpty) return '이메일을 입력해주세요.';
-                              final emailRegex =
-                                  RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                              final emailRegex = RegExp(
+                                r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                              );
                               if (!emailRegex.hasMatch(value)) {
                                 return '유효한 이메일을 입력해주세요.';
                               }
@@ -181,26 +184,33 @@ class _SignupScreenState extends State<SignupScreen> {
                     Row(
                       children: [
                         ElevatedButton(
-                          onPressed:
-                              canSendVerify ? _checkDuplicateAndSendVerification : null,
+                          onPressed: canSendVerify
+                              ? _checkDuplicateAndSendVerification
+                              : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                           ),
                           child: _sending
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text('중복 확인(인증메일 발송)'),
                         ),
                         const SizedBox(width: 12),
                         if (_verificationMailSent)
-                          const Text('인증 메일 발송됨',
-                              style: TextStyle(color: Colors.green)),
+                          const Text(
+                            '인증 메일 발송됨',
+                            style: TextStyle(color: Colors.green),
+                          ),
                       ],
                     ),
 
@@ -220,13 +230,17 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                          ),
                         ),
                         suffixIcon: IconButton(
                           onPressed: () =>
                               setState(() => _isObscure1 = !_isObscure1),
                           icon: Icon(
-                            _isObscure1 ? Icons.visibility_off : Icons.visibility,
+                            _isObscure1
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                           ),
                         ),
                       ),
@@ -256,13 +270,17 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                          ),
                         ),
                         suffixIcon: IconButton(
                           onPressed: () =>
                               setState(() => _isObscure2 = !_isObscure2),
                           icon: Icon(
-                            _isObscure2 ? Icons.visibility_off : Icons.visibility,
+                            _isObscure2
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                           ),
                         ),
                       ),
@@ -293,7 +311,9 @@ class _SignupScreenState extends State<SignupScreen> {
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text(
                                 '회원가입',

@@ -27,8 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController.text = 'sample@gmail.com';
-    _passwordController.text = 'qwer123!';
+    _emailController.text = 'minsuh727@naver.com';
+    _passwordController.text = 'min123^^';
     _isValid = _validateNow();
   }
 
@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await _auth.signOut();
         return;
       }
-      Get.offAllNamed('/home');
+      Get.offAllNamed('/initial-expression');
     } catch (e) {
       _showSnack(_friendlyError(e));
     } finally {
@@ -136,7 +136,10 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
                   child: Form(
@@ -148,10 +151,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           '이메일과 비밀번호를\n입력해주세요.',
                           style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.w800, height: 1.25),
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.25,
+                              ),
                         ),
                         const SizedBox(height: 36),
-                        Text('이메일', style: Theme.of(context).textTheme.labelLarge),
+                        Text(
+                          '이메일',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _emailController,
@@ -168,22 +177,31 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           onChanged: (_) => _updateValidity(),
-                          onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
+                          onFieldSubmitted: (_) =>
+                              _passwordFocusNode.requestFocus(),
                           validator: (value) {
                             final String v = value?.trim() ?? '';
                             if (v.isEmpty) return '이메일을 입력해주세요.';
-                            final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                            if (!emailRegex.hasMatch(v)) return '유효한 이메일을 입력해주세요.';
+                            final emailRegex = RegExp(
+                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                            );
+                            if (!emailRegex.hasMatch(v))
+                              return '유효한 이메일을 입력해주세요.';
                             return null;
                           },
                         ),
                         const SizedBox(height: 20),
-                        Text('비밀번호', style: Theme.of(context).textTheme.labelLarge),
+                        Text(
+                          '비밀번호',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _passwordController,
@@ -200,11 +218,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                              ),
                             ),
                             suffixIcon: IconButton(
-                              onPressed: () => setState(() => _isObscure = !_isObscure),
-                              icon: Icon(_isObscure ? Icons.visibility_off : Icons.visibility),
+                              onPressed: () =>
+                                  setState(() => _isObscure = !_isObscure),
+                              icon: Icon(
+                                _isObscure
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
                             ),
                           ),
                           autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -230,10 +255,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            onPressed: (_isValid && !_loading) ? _onLoginPressed : null,
+                            onPressed: (_isValid && !_loading)
+                                ? _onLoginPressed
+                                : null,
                             child: Text(
                               _loading ? '로그인 중...' : '로그인',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -245,7 +274,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             spacing: 12,
                             children: [
                               TextButton(
-                                onPressed: _loading ? null : () => Get.toNamed('/signup'),
+                                onPressed: _loading
+                                    ? null
+                                    : () => Get.toNamed('/signup'),
                                 child: const Text('회원가입'),
                               ),
                               const Text('|'),
