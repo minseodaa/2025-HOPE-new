@@ -22,8 +22,6 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isObscure2 = true;
   bool _isValid = false; // 필드 유효성
   bool _isLoading = false; // 전체 로딩(버튼 비활성화용)
-  bool _sending = false; // 중복확인/인증메일 발송 중
-  bool _verificationMailSent = false; // 인증메일 발송 완료 여부
 
   @override
   void dispose() {
@@ -46,64 +44,19 @@ class _SignupScreenState extends State<SignupScreen> {
     Get.snackbar('알림', msg, snackPosition: SnackPosition.BOTTOM);
   }
 
-  bool get _emailValid =>
-      RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(_emailController.text.trim());
-  bool get _pwValid => RegExp(
-    r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$',
-  ).hasMatch(_passwordController.text);
-  bool get _pwMatch =>
-      _passwordController.text == _passwordCheckController.text;
-
-  /// 1단계: 이메일 중복 확인 + 인증 메일 발송
-  Future<void> _checkDuplicateAndSendVerification() async {
-    final email = _emailController.text.trim();
-
-    if (!_emailValid) {
-      _toast('이메일 형식을 확인해 주세요.');
-      return;
-    }
-    if (!_pwValid || !_pwMatch) {
-      _toast('비밀번호 규칙/재확인을 확인해 주세요. (영문/숫자/특수문자 포함 8자 이상)');
-      return;
-    }
-
-    setState(() => _sending = true);
-    try {
-      final auth = AuthService();
-      final available = await auth.isEmailAvailable(email);
-      if (!available) {
-        _toast('이미 사용 중인 이메일입니다.');
-        return;
-      }
-
-      // 계정 생성 + 인증 메일 발송
-      await auth.createUserAndSendVerification(
-        email: email,
-        password: _passwordController.text,
-      );
-      setState(() => _verificationMailSent = true);
-      _toast('인증 메일을 보냈습니다. 메일함에서 인증을 완료해 주세요.');
-    } catch (e) {
-      _toast('중복 확인/인증메일 발송 실패: $e');
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  /// 최종 가입 처리 (중복 확인/인증 메일 선행 없이도 시도)
+  /// 회원가입 처리
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
       final auth = AuthService();
-      // 중복 확인/인증메일 발송 단계를 건너뛰더라도, 여기서 계정 생성 시도
       await auth.createUserAndSendVerification(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      // 가입 직후 바로 다음 화면으로 이동 (이메일 인증은 선택적으로 진행)
+      // 가입 직후 바로 다음 화면으로 이동
       Get.offAllNamed('/initial-expression');
     } catch (e) {
       _toast('회원가입 실패: $e');
@@ -115,8 +68,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canSendVerify = !_sending && !_isLoading; // 중복확인/인증메일 발송 버튼 활성화 조건
-    final canFinishSignUp = _isValid && !_isLoading; // 중복 확인 없이도 가입 가능
+    final canSignUp = _isValid && !_isLoading; // 회원가입 버튼 활성화 조건
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -177,40 +129,6 @@ class _SignupScreenState extends State<SignupScreen> {
                             },
                           ),
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed: canSendVerify
-                              ? _checkDuplicateAndSendVerification
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          child: _sending
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('중복 확인(인증메일 발송)'),
-                        ),
-                        const SizedBox(width: 12),
-                        if (_verificationMailSent)
-                          const Text(
-                            '인증 메일 발송됨',
-                            style: TextStyle(color: Colors.green),
-                          ),
                       ],
                     ),
 
@@ -305,8 +223,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                         ),
-                        // ✅ 최종 회원가입: 인증메일 발송 완료 후에만 가능
-                        onPressed: canFinishSignUp ? _submit : null,
+                        onPressed: canSignUp ? _submit : null,
                         child: _isLoading
                             ? const SizedBox(
                                 width: 22,
