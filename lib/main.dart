@@ -11,6 +11,8 @@ import 'utils/constants.dart';
 import 'views/home_screen.dart';
 import 'views/login_screen.dart';
 import 'views/signup_screen.dart';
+import 'views/initial_expression_screen.dart';
+import 'views/initial_expression_result_screen.dart';
 
 void main() async {
   // Flutter 바인딩 초기화
@@ -43,6 +45,14 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       getPages: [
         GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(
+          name: '/initial-expression',
+          page: () => const InitialExpressionScreen(),
+        ),
+        GetPage(
+          name: '/initial-expression/result',
+          page: () => const InitialExpressionResultScreen(),
+        ),
         GetPage(
           name: '/home',
           page: () => FutureBuilder<CameraDescription>(

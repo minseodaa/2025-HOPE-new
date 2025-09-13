@@ -49,8 +49,8 @@ class _SignupScreenState extends State<SignupScreen> {
     );
     setState(() => _isLoading = false);
     if (result.ok) {
-      Get.back();
-      Get.snackbar('회원가입', '가입이 완료되었습니다. 로그인해주세요.');
+      // 회원가입 성공 시 초기 표정 측정 화면으로 이동
+      Get.offAllNamed('/initial-expression');
     } else {
       Get.snackbar('회원가입 실패', result.errorMessage ?? '알 수 없는 오류');
     }

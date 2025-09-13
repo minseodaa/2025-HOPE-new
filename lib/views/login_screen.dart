@@ -20,6 +20,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isValid = false;
 
   @override
+  void initState() {
+    super.initState();
+    // 디폴트 로그인 값 자동 채움
+    _emailController.text = 'sample@gmail.com';
+    _passwordController.text = 'qwer123!';
+    // 유효성 즉시 갱신
+    _isValid = _validateNow();
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -32,7 +42,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    Get.offNamed('/home');
+    // 로그인 후 초기 표정 측정 화면으로 이동
+    Get.offNamed('/initial-expression');
   }
 
   bool _validateNow() {
