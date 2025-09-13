@@ -1,15 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:http/http.dart' as http;
 
 import '../utils/constants.dart';
 import '../controllers/camera_controller.dart' as camera_ctrl;
 import '../models/expression_type.dart';
 import 'camera_preview_widget.dart';
 import 'initial_expression_result_screen.dart';
+import '../config/app_config.dart';
 
 /// 초기 표정 측정 화면
 /// - 스낵바 안내 + 타이머 시퀀스(측정 15초 / 휴식 10초)
@@ -29,6 +32,8 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
   Face? _lastFaceSnapshot; // 마지막으로 감지된 얼굴 스냅샷
   Worker? _faceWatcher; // Rx 구독 해제용
   bool _canUpload = false; // 마지막(슬픔) 종료 후 업로드 버튼 표시 여부
+  bool _isUploading = false; // 업로드 진행 여부
+  final Map<String, dynamic> _uploadData = {'expressions': <String, dynamic>{}};
 
   // 타이머/시퀀스 상태
   Timer? _timer;
@@ -344,16 +349,71 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
           break;
       }
       buffer.writeln('^^^[$label] 15초 측정 결과^^^');
+
+      // 업로드용 표정 키 매핑
+      String key;
+      switch (current) {
+        case ExpressionType.neutral:
+          key = 'neutral';
+          break;
+        case ExpressionType.smile:
+          key = 'smile';
+          break;
+        case ExpressionType.angry:
+          key = 'angry';
+          break;
+        case ExpressionType.sad:
+          key = 'sad';
+          break;
+      }
+      final Map<String, dynamic> pointsMap = <String, dynamic>{};
       for (final type in targets) {
         final pos = resolveLandmark(face, type);
         if (pos == null) continue;
         final double sx = toScreenX(pos.dx);
         final double sy = toScreenY(pos.dy);
+        String typeKey;
+        switch (type) {
+          case FaceLandmarkType.bottomMouth:
+            typeKey = 'bottomMouth';
+            break;
+          case FaceLandmarkType.rightMouth:
+            typeKey = 'rightMouth';
+            break;
+          case FaceLandmarkType.leftMouth:
+            typeKey = 'leftMouth';
+            break;
+          case FaceLandmarkType.leftEye:
+            typeKey = 'leftEye';
+            break;
+          case FaceLandmarkType.rightEye:
+            typeKey = 'rightEye';
+            break;
+          case FaceLandmarkType.rightCheek:
+            typeKey = 'rightCheek';
+            break;
+          case FaceLandmarkType.leftCheek:
+            typeKey = 'leftCheek';
+            break;
+          case FaceLandmarkType.noseBase:
+            typeKey = 'noseBase';
+            break;
+          default:
+            continue;
+        }
+        pointsMap[typeKey] = {
+          'raw': [pos.dx, pos.dy],
+          'screen': [sx, sy],
+        };
         buffer.writeln(
           '^^^LM ${type.toString()}: raw=(${pos.dx.toStringAsFixed(1)}, ${pos.dy.toStringAsFixed(1)}) '
           'screen=(${sx.toStringAsFixed(1)}, ${sy.toStringAsFixed(1)})',
         );
       }
+
+      // 표정별 포인트를 업로드 페이로드에 저장
+      final expressions = _uploadData['expressions'] as Map<String, dynamic>;
+      expressions[key] = pointsMap;
 
       final String out = buffer.toString().trim();
       if (out.isNotEmpty) {
@@ -362,6 +422,42 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
       }
     } catch (_) {
       // 로그 목적이므로 실패는 무시
+    }
+  }
+
+  Future<void> _uploadInitialExpressions() async {
+    if (_isUploading) return;
+    setState(() => _isUploading = true);
+    try {
+      final Uri uri = Uri.parse(
+        '${AppConfig.apiBaseUrl}${AppConfig.firstfacePath()}',
+      );
+      final String body = jsonEncode(_uploadData);
+      final http.Response res = await http.post(
+        uri,
+        headers: const {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      final bool ok = res.statusCode >= 200 && res.statusCode < 300;
+      // 전송 유무 로그 출력
+      // ignore: avoid_print
+      print('UPLOAD_${ok ? 'OK' : 'FAIL'} code=${res.statusCode}');
+      if (ok) {
+        _showInfo('성공적으로 업로드가 되었습니다');
+        // 다음 화면 이동 (요청 시점에 맞춰 유지/변경 가능)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Get.off(() => const InitialExpressionResultScreen());
+        });
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('UPLOAD_FAIL error=$e');
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -507,11 +603,10 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
                               borderRadius: BorderRadius.circular(AppRadius.md),
                             ),
                           ),
-                          onPressed: () {
-                            // 백엔드 연동 예정: 업로드 처리 후 성공 스낵바 및 다음 화면 이동
-                            _showInfo('업로드 준비 중입니다 (API 연동 예정)');
-                          },
-                          child: const Text('업로드하기'),
+                          onPressed: _isUploading
+                              ? null
+                              : _uploadInitialExpressions,
+                          child: Text(_isUploading ? '업로드 중...' : '업로드하기'),
                         ),
                       )
                     else
