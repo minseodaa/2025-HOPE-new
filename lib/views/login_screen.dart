@@ -27,8 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController.text = 'minsuh727@naver.com';
-    _passwordController.text = 'min123^^';
+    //_emailController.text = 'minsuh727@naver.com';
+    //_passwordController.text = 'min123^^';
     _isValid = _validateNow();
   }
 

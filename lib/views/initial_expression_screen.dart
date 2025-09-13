@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../utils/constants.dart';
+import '../utils/score_converter.dart';
 import '../controllers/camera_controller.dart' as camera_ctrl;
 import '../models/expression_type.dart';
 import 'camera_preview_widget.dart';
@@ -35,6 +36,15 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
   bool _canUpload = false; // 마지막(슬픔) 종료 후 업로드 버튼 표시 여부
   bool _isUploading = false; // 업로드 진행 여부
   final Map<String, dynamic> _uploadData = {'expressions': <String, dynamic>{}};
+
+  // 표정별 점수 수집을 위한 변수들
+  final Map<ExpressionType, List<double>> _expressionScores = {
+    ExpressionType.neutral: [],
+    ExpressionType.smile: [],
+    ExpressionType.angry: [],
+    ExpressionType.sad: [],
+  };
+  Timer? _scoreCollectionTimer; // 점수 수집용 타이머
 
   // 타이머/시퀀스 상태
   Timer? _timer;
@@ -79,6 +89,7 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
   @override
   void dispose() {
     _stopTimer();
+    _stopScoreCollection();
     _cameraController.stopStream();
     _faceWatcher?.dispose();
     super.dispose();
@@ -109,11 +120,16 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
       _showInfo('카메라 준비 중입니다. 잠시 후 다시 시도해주세요.');
       return;
     }
+
+    // 점수 수집 초기화
+    _resetScoreCollection();
+
     _stepIndex = 0;
     _phase = _Phase.measure;
     _remainingSeconds = 15;
     _announceStep();
     _startTimer();
+    _startScoreCollection();
   }
 
   void _announceStep() {
@@ -142,6 +158,60 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
   void _stopTimer() {
     _timer?.cancel();
     _timer = null;
+  }
+
+  /// 점수 수집 초기화
+  void _resetScoreCollection() {
+    for (final expression in ExpressionType.values) {
+      _expressionScores[expression]?.clear();
+    }
+  }
+
+  /// 점수 수집 시작 (0.5초마다 현재 점수 수집)
+  void _startScoreCollection() {
+    _scoreCollectionTimer?.cancel();
+    _scoreCollectionTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      _,
+    ) {
+      if (_phase == _Phase.measure &&
+          _stepIndex >= 0 &&
+          _stepIndex < _sequence.length) {
+        _collectCurrentScore();
+      }
+    });
+  }
+
+  /// 점수 수집 중지
+  void _stopScoreCollection() {
+    _scoreCollectionTimer?.cancel();
+    _scoreCollectionTimer = null;
+  }
+
+  /// 현재 표정의 점수 수집
+  void _collectCurrentScore() {
+    if (_stepIndex < 0 || _stepIndex >= _sequence.length) return;
+
+    final ExpressionType currentExpression = _sequence[_stepIndex];
+    double currentScore = 0.0;
+
+    // 현재 표정에 맞는 점수 가져오기
+    switch (currentExpression) {
+      case ExpressionType.neutral:
+        currentScore = _cameraController.neutralScore.value;
+        break;
+      case ExpressionType.smile:
+        currentScore = _cameraController.smileScore.value;
+        break;
+      case ExpressionType.angry:
+        currentScore = _cameraController.angryScore.value;
+        break;
+      case ExpressionType.sad:
+        currentScore = _cameraController.sadScore.value;
+        break;
+    }
+
+    // 점수 수집 (0.0~1.0 범위)
+    _expressionScores[currentExpression]?.add(currentScore);
   }
 
   void _tick() {
@@ -184,10 +254,15 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
         _phase = _Phase.done;
         _stopTimer();
         _showInfo('초기 표정 측정이 완료되었습니다 🎉', bg: AppColors.success);
-        // 완료 후 결과 화면으로 이동
+        // 완료 후 결과 화면으로 이동 (점수 데이터 없이 기본값 사용)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          Get.off(() => const InitialExpressionResultScreen());
+          final emptyScores = <ExpressionType, double>{
+            for (final expression in ExpressionType.values) expression: 0.0,
+          };
+          Get.off(
+            () => InitialExpressionResultScreen(expressionScores: emptyScores),
+          );
         });
         setState(() {});
       }
@@ -449,10 +524,22 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
       print('UPLOAD_${ok ? 'OK' : 'FAIL'} code=${res.statusCode}');
       if (ok) {
         _showInfo('성공적으로 업로드가 되었습니다');
-        // 다음 화면 이동 (요청 시점에 맞춰 유지/변경 가능)
+
+        // 수집된 점수들을 0~5 범위로 변환하여 평균 계산
+        final Map<ExpressionType, double> averageScores = {};
+        for (final expression in ExpressionType.values) {
+          final scores = _expressionScores[expression] ?? [];
+          averageScores[expression] =
+              ScoreConverter.calculateAverageDisplayScore(scores);
+        }
+
+        // 다음 화면 이동 (점수 데이터 전달)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          Get.off(() => const InitialExpressionResultScreen());
+          Get.off(
+            () =>
+                InitialExpressionResultScreen(expressionScores: averageScores),
+          );
         });
       }
     } catch (e) {
@@ -608,7 +695,9 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
                           onPressed: _isUploading
                               ? null
                               : _uploadInitialExpressions,
-                          child: Text(_isUploading ? '업로드 중...' : '업로드하기'),
+                          child: Text(
+                            _isUploading ? '업로드 중...' : '초기 표정 기록 보러가기',
+                          ),
                         ),
                       )
                     else

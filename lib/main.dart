@@ -1,3 +1,4 @@
+import 'package:face_newversion/models/expression_type.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:camera/camera.dart';
@@ -25,10 +26,8 @@ void main() async {
   Intl.defaultLocale = 'ko_KR';
   await initializeDateFormatting('ko_KR');
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   // 일부 환경에서 runApp 이전의 availableCameras 호출 시 MissingPluginException이 발생할 수 있어
   // 카메라 선택은 runApp 이후 위젯 트리에서 처리합니다.
   runApp(const MyApp());
@@ -58,7 +57,11 @@ class MyApp extends StatelessWidget {
         ),
         GetPage(
           name: '/initial-expression/result',
-          page: () => const InitialExpressionResultScreen(),
+          page: () => InitialExpressionResultScreen(
+            expressionScores: <ExpressionType, double>{
+              for (final expression in ExpressionType.values) expression: 0.0,
+            },
+          ),
         ),
         GetPage(
           name: '/home',
