@@ -402,10 +402,8 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
           default:
             continue;
         }
-        pointsMap[typeKey] = {
-          'raw': [pos.dx, pos.dy],
-          'screen': [sx, sy],
-        };
+        // 백엔드 전송 포맷: screen 좌표 미사용, raw 좌표만 {x, y}로 전송
+        pointsMap[typeKey] = {'x': pos.dx, 'y': pos.dy};
         buffer.writeln(
           '^^^LM ${type.toString()}: raw=(${pos.dx.toStringAsFixed(1)}, ${pos.dy.toStringAsFixed(1)}) '
           'screen=(${sx.toStringAsFixed(1)}, ${sy.toStringAsFixed(1)})',
