@@ -1,4 +1,4 @@
-package com.example.face_newversion
+package com.example.reface
 
 import io.flutter.embedding.android.FlutterActivity
 

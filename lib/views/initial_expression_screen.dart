@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../utils/constants.dart';
 import '../controllers/camera_controller.dart' as camera_ctrl;
