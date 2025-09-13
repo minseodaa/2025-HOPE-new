@@ -53,12 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _loading = true);
     try {
-      final verified = await _auth.signIn(email, pw);
-      if (!verified) {
-        _showSnack('이메일 인증이 필요합니다. 받은메일함을 확인하고 인증 후 다시 로그인해주세요.');
-        await _auth.signOut();
-        return;
-      }
+      await _auth.signIn(email, pw);
       Get.offAllNamed('/initial-expression');
     } catch (e) {
       _showSnack(_friendlyError(e));
@@ -78,23 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _auth.sendPasswordResetEmail(email);
       _showSnack('비밀번호 재설정 메일을 보냈습니다.');
-    } catch (e) {
-      _showSnack(_friendlyError(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _onCheckVerified() async {
-    setState(() => _loading = true);
-    try {
-      final ok = await _auth.reloadAndCheckVerified();
-      if (ok) {
-        _showSnack('이메일 인증이 완료되었습니다. 계속 진행합니다.');
-        Get.offAllNamed('/initial-expression');
-      } else {
-        _showSnack('아직 인증되지 않았어요. 메일의 인증 링크를 눌러주세요.');
-      }
     } catch (e) {
       _showSnack(_friendlyError(e));
     } finally {
