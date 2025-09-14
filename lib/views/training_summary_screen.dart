@@ -16,6 +16,12 @@ class TrainingSummaryScreen extends StatefulWidget {
 class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
   final TrainingRecordService _recordService = TrainingRecordService();
 
+  // 점수 정규화: 0~1 → 0~100, 이미 0~100이면 그대로
+  double _normalizeTo100(double raw) {
+    if (raw.isNaN) return 0;
+    return raw <= 1.0 ? (raw * 100.0) : raw;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,11 +87,12 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
 
   double _calculateOverallAverage(
       Map<ExpressionType, TrainingRecord?> latestRecords) {
-    double totalScore = 0;
+    double total = 0;
     for (var type in ExpressionType.values) {
-      totalScore += latestRecords[type]?.score ?? 0;
+      final s = latestRecords[type]?.score ?? 0;
+      total += _normalizeTo100(s);
     }
-    return totalScore / ExpressionType.values.length;
+    return total / ExpressionType.values.length; // 이미 0~100 스케일 평균
   }
 
   Widget _buildOverallAverageCard(double averageScore) {
@@ -98,7 +105,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
             const Text('전체 진척도의 평균 (%)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             Text(
-              '${(averageScore * 100).round()}%',
+              '${averageScore.round()}%', // 이미 0~100 값
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -120,6 +127,8 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
 
   Widget _buildExpressionCard(
       BuildContext context, ExpressionType type, TrainingRecord? record) {
+    final display = record != null ? _normalizeTo100(record.score).round() : null;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -144,7 +153,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
             Text(_getExpressionName(type),
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('진척도: ${record != null ? (record.score * 100).round() : 'N/A'}%'),
+            Text('진척도: ${display != null ? '$display%' : 'N/A'}'),
             const Spacer(),
             SizedBox(
               width: double.infinity,
