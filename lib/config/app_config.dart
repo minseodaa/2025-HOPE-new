@@ -5,4 +5,8 @@ class AppConfig {
 
   static String signupPath() => '/auth/signup';
   static String firstfacePath() => '/expressions/initial';
+
+  static String trainingSessionsPath() => '/training/sessions';
+  static String trainingSessionDetailPath(String sid) => '/training/sessions/$sid';
+  static String saveSetPath(String sid) => '/training/sessions/$sid/sets';
 }

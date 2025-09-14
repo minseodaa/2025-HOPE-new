@@ -1,18 +1,15 @@
-// ## 파일: lib/views/training_log_screen.dart ##
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+
 import '../models/expression_type.dart';
-import '../models/training_record.dart';
-import '../services/training_record_service.dart';
 import '../utils/constants.dart';
-import 'expression_select_screen.dart';
+import '../services/training_api_service.dart';
 
 class TrainingLogScreen extends StatefulWidget {
   final ExpressionType expressionType;
-
   const TrainingLogScreen({super.key, required this.expressionType});
 
   @override
@@ -20,139 +17,319 @@ class TrainingLogScreen extends StatefulWidget {
 }
 
 class _TrainingLogScreenState extends State<TrainingLogScreen> {
-  final TrainingRecordService _recordService = TrainingRecordService();
-  late Future<List<TrainingRecord>> _recordsFuture;
+  final _api = TrainingApiService();
+
+  List<_Point> _points = [];
+  bool _loading = true;
+  String? _error;
+
+  int? _selectedIndex; // 차트에서 선택된 포인트 인덱스
 
   @override
   void initState() {
     super.initState();
-    _recordsFuture = _recordService.getRecordsForType(widget.expressionType);
+    _load();
   }
 
-  String _getTitle() {
-    // ExpressionType enum에 따라 제목을 반환하는 로직 (예시)
-    switch(widget.expressionType) {
-      case ExpressionType.smile: return '웃는 표정';
-      case ExpressionType.sad: return '슬픈 표정';
-      case ExpressionType.angry: return '화난 표정';
-      case ExpressionType.neutral: return '무표정';
+  String _stripPrefix(String s) =>
+      s.replaceFirst(RegExp(r'^data:image/[^;]+;base64,'), '');
+
+  double _normalizeScore(num raw) {
+    final d = raw.toDouble();
+    // 서버가 0~1 스케일로 줄 수도 있어 자동 노멀라이즈
+    return d <= 1.5 ? (d * 100.0) : d;
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _selectedIndex = null;
+    });
+
+    try {
+      Map<String, dynamic> list;
+      try {
+        list = await _api.fetchSessions(
+          expr: widget.expressionType.name,
+          status: 'completed',
+          pageSize: 50,
+        );
+      } catch (_) {
+        list = await _api.fetchSessions(
+          expr: widget.expressionType.name,
+          pageSize: 50,
+        );
+      }
+
+      final sessions = (list['sessions'] as List?) ?? const [];
+      final result = <_Point>[];
+
+      for (final raw in sessions) {
+        if (raw is! Map) continue;
+
+        final sid = raw['sid']?.toString();
+        final updatedAtStr = (raw['updatedAt'] ?? raw['createdAt'])?.toString();
+        if (sid == null || updatedAtStr == null) continue;
+
+        final date = DateTime.tryParse(updatedAtStr);
+        if (date == null) continue;
+
+        double? score =
+        (raw['finalScore'] is num) ? _normalizeScore(raw['finalScore']) : null;
+
+        String? lastFrameImageB64;
+        double? lastSetScore;
+
+        try {
+          final detail = await _api.fetchSessionDetail(sid);
+          final sets = (detail['session']?['sets'] as List?) ?? const [];
+          if (sets.isNotEmpty) {
+            final lastSet = (sets.last as Map?) ?? const {};
+            final img = lastSet['lastFrameImage'];
+            final setScore = lastSet['score'];
+            if (img is String && img.isNotEmpty) {
+              lastFrameImageB64 = _stripPrefix(img);
+            }
+            if (setScore is num) {
+              lastSetScore = _normalizeScore(setScore);
+            }
+          }
+        } catch (_) {
+          // 상세 실패는 무시
+        }
+
+        score ??= lastSetScore;
+        if (score == null) continue;
+
+        result.add(_Point(
+          date: date,
+          score: score.clamp(0, 100),
+          lastImageBase64: lastFrameImageB64,
+        ));
+      }
+
+      result.sort((a, b) => a.date.compareTo(b.date));
+      setState(() => _points = result);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _title() {
+    switch (widget.expressionType) {
+      case ExpressionType.smile:
+        return '웃는 표정';
+      case ExpressionType.sad:
+        return '슬픈 표정';
+      case ExpressionType.angry:
+        return '화난 표정';
+      case ExpressionType.neutral:
+        return '무표정';
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final df = DateFormat('MM/dd');
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('세부 기록: ${_getTitle()}', style: const TextStyle(color: AppColors.textPrimary)),
+        title: Text('세부 기록: ${_title()}',
+            style: const TextStyle(color: AppColors.textPrimary)),
         backgroundColor: AppColors.surface,
         centerTitle: true,
+        actions: [
+          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSizes.lg),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text('오류: $_error'))
+          : Padding(
+        padding: const EdgeInsets.all(AppSizes.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(_getTitle(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Divider(height: 30),
-            const Text('표정 진척도', style: TextStyle(fontSize: 18, color: AppColors.textSecondary)),
-            const SizedBox(height: AppSizes.xl),
-            Expanded(
-              child: FutureBuilder<List<TrainingRecord>>(
-                future: _recordsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('저장된 훈련 기록이 없습니다.'));
-                  }
-                  final records = snapshot.data!;
-                  // 날짜순으로 정렬
-                  records.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-                  return LineChart(
-                    _buildChartData(records),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: AppSizes.lg),
-            ElevatedButton(
-              onPressed: () {
-                // 스택의 맨 처음 페이지(표정 선택 화면)까지 모두 pop
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              child: const Text('훈련하러 가기'),
-            ),
+            Expanded(child: LineChart(_chartData(df))),
+            const SizedBox(height: AppSizes.md),
+            _buildSelectedPreview(df),
           ],
         ),
       ),
     );
   }
 
-  LineChartData _buildChartData(List<TrainingRecord> records) {
-    List<FlSpot> spots = records.asMap().entries.map((entry) {
-      int index = entry.key;
-      TrainingRecord record = entry.value;
-      return FlSpot(index.toDouble(), record.score * 100);
-    }).toList();
+  Widget _buildSelectedPreview(DateFormat df) {
+    if (_selectedIndex == null ||
+        _selectedIndex! < 0 ||
+        _selectedIndex! >= _points.length) {
+      return const SizedBox.shrink();
+    }
+    final p = _points[_selectedIndex!];
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.md),
+        child: Row(
+          children: [
+            if ((p.lastImageBase64 ?? '').isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.memory(
+                  base64Decode(p.lastImageBase64!),
+                  width: 96,
+                  height: 72,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                ),
+              )
+            else
+              Container(
+                width: 96,
+                height: 72,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.image_not_supported, size: 28),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(df.format(p.date),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text('진척도: ${p.score.toStringAsFixed(1)}'),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () => setState(() => _selectedIndex = null),
+              icon: const Icon(Icons.close),
+              tooltip: '닫기',
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  LineChartData _chartData(DateFormat df) {
+    if (_points.isEmpty) {
+      return LineChartData(
+        titlesData: const FlTitlesData(show: false),
+        lineBarsData: const [],
+      );
+    }
+
+    final spots = <FlSpot>[];
+    for (var i = 0; i < _points.length; i++) {
+      spots.add(FlSpot(i.toDouble(), _points[i].score));
+    }
 
     return LineChartData(
       minY: 0,
       maxY: 100,
-
-      // 터치 이벤트 설정
+      gridData: const FlGridData(show: true),
+      titlesData: FlTitlesData(
+        leftTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+        ),
+        rightTitles:
+        const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles:
+        const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 28,
+            getTitlesWidget: (value, meta) {
+              final idx = value.toInt();
+              if (idx < 0 || idx >= _points.length) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(df.format(_points[idx].date),
+                    style: const TextStyle(fontSize: 11)),
+              );
+            },
+          ),
+        ),
+      ),
+      borderData: FlBorderData(show: true),
       lineTouchData: LineTouchData(
+        handleBuiltInTouches: true,
+        touchCallback: (event, response) {
+          if (!event.isInterestedForInteractions ||
+              response == null ||
+              response.lineBarSpots == null ||
+              response.lineBarSpots!.isEmpty) {
+            setState(() => _selectedIndex = null);
+            return;
+          }
+          final idx = response.lineBarSpots!.first.x.toInt();
+          if (idx >= 0 && idx < _points.length) {
+            setState(() => _selectedIndex = idx);
+          }
+        },
         touchTooltipData: LineTouchTooltipData(
-          getTooltipItems: (touchedSpots) {
-            return touchedSpots.map((spot) {
-              final record = records[spot.x.toInt()];
+          tooltipRoundedRadius: 10,
+          fitInsideHorizontally: true,
+          fitInsideVertically: true,
+          getTooltipItems: (list) {
+            return list.map((s) {
+              final idx = s.x.toInt();
+              final p = _points[idx];
               return LineTooltipItem(
-                  '${DateFormat('M월 d일').format(record.timestamp)}\n진척도: ${record.score.toStringAsFixed(2)}%',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  children: [
-                    // TODO: 여기에 이미지 위젯 추가
-                    // 예: WidgetSpan(child: Image.file(File(record.imagePath!)))
-                  ]
+                '${df.format(p.date)}\n점수: ${p.score.toStringAsFixed(1)}',
+                const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               );
             }).toList();
           },
         ),
       ),
-      // 그리드, 축, 타이틀 등 UI 설정
-      gridData: const FlGridData(show: true),
-      titlesData: FlTitlesData(
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 30,
-            interval: 1,
-            getTitlesWidget: (value, meta) {
-              int index = value.toInt();
-              if (index >= 0 && index < records.length) {
-                // x축에 날짜 표시 (간격을 봐서 일부만 표시하도록 조정 가능)
-                if(records.length > 5 && index % (records.length ~/ 5) != 0) return const SizedBox.shrink();
-                return Text(DateFormat('MM/dd').format(records[index].timestamp), style: const TextStyle(fontSize: 10));
-              }
-              return const Text('');
-            },
-          ),
-        ),
-        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
-        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      ),
-      borderData: FlBorderData(show: true),
       lineBarsData: [
         LineChartBarData(
           spots: spots,
           isCurved: true,
           color: AppColors.primary,
           barWidth: 4,
-          belowBarData: BarAreaData(show: true, color: AppColors.primary.withOpacity(0.2)),
+          belowBarData: BarAreaData(
+            show: true,
+            color: AppColors.primary.withOpacity(0.18),
+          ),
+          dotData: const FlDotData(show: true),
         ),
       ],
     );
   }
+}
+
+class _Point {
+  final DateTime date;
+  final double score; // 0~100
+  final String? lastImageBase64; // base64 (nullable)
+
+  _Point({
+    required this.date,
+    required this.score,
+    required this.lastImageBase64,
+  });
 }

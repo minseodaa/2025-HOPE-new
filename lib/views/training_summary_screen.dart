@@ -1,5 +1,3 @@
-// ## 파일: lib/views/training_summary_screen.dart ##
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../utils/constants.dart';
@@ -45,8 +43,6 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                 children: [
                   _buildOverallAverageCard(_calculateOverallAverage(latestRecords)),
                   const SizedBox(height: AppSizes.lg),
-
-                  // ➜ 화면 크기에 맞춰 안정적인 그리드
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const crossAxisCount = 2;
@@ -54,8 +50,6 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                       final totalSpacing = spacing * (crossAxisCount - 1);
                       final itemWidth =
                           (constraints.maxWidth - totalSpacing) / crossAxisCount;
-
-                      // 카드 콘텐츠 기준 권장 높이
                       const desiredItemHeight = 250.0;
                       final ratio = itemWidth / desiredItemHeight;
 
@@ -128,14 +122,14 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
       BuildContext context, ExpressionType type, TrainingRecord? record) {
     return Card(
       elevation: 2,
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(AppSizes.sm),
         child: Column(
           children: [
-            // 이모지 영역: 명시적 고정 높이
             SizedBox(
               height: 110,
               width: double.infinity,
@@ -159,8 +153,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   minimumSize: const Size.fromHeight(38),
                 ),
-                onPressed: () =>
-                    Get.to(() => TrainingLogScreen(expressionType: type)),
+                onPressed: () => Get.to(() => TrainingLogScreen(expressionType: type)),
                 child: const Text('기록 보기'),
               ),
             ),
