@@ -116,7 +116,7 @@ class InitialExpressionResultScreen extends StatelessWidget {
     required int color,
   }) {
     final expressionName = _getExpressionName(expression);
-    final barWidth = (score / 5.0) * 0.8; // 최대 80% 너비
+    final barWidth = (score / 100.0) * 0.8; // 최대 80% 너비
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSizes.sm),
@@ -169,7 +169,7 @@ class InitialExpressionResultScreen extends StatelessWidget {
                   // 점수 텍스트
                   Center(
                     child: Text(
-                      score.toStringAsFixed(1),
+                      score.toStringAsFixed(0),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -226,11 +226,11 @@ class InitialExpressionResultScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildLegendItem('0-1', '매우 약함', 0xFF9E9E9E),
-              _buildLegendItem('1-2', '약함', 0xFFE57373),
-              _buildLegendItem('2-3', '보통', 0xFFFFB74D),
-              _buildLegendItem('3-4', '강함', 0xFF81C784),
-              _buildLegendItem('4-5', '매우 강함', 0xFF4CAF50),
+              _buildLegendItem('0-20', '매우 약함', 0xFF9E9E9E),
+              _buildLegendItem('20-40', '약함', 0xFFE57373),
+              _buildLegendItem('40-60', '보통', 0xFFFFB74D),
+              _buildLegendItem('60-80', '강함', 0xFF81C784),
+              _buildLegendItem('80-100', '매우 강함', 0xFF4CAF50),
             ],
           ),
         ],

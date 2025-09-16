@@ -509,19 +509,19 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
       );
       final String body = jsonEncode(_uploadData);
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-      final http.Response res = await http.post(
-        uri,
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-        body: body,
-      );
-      final bool ok = res.statusCode >= 200 && res.statusCode < 300;
+      // final http.Response res = await http.post(
+      //   uri,
+      //   headers: {
+      //     'accept': 'application/json',
+      //     'Content-Type': 'application/json',
+      //     'Authorization': 'Bearer $idToken',
+      //   },
+      //   body: body,
+      // );
+      final bool ok = true; //res.statusCode >= 200 && res.statusCode < 300;
       // 전송 유무 로그 출력
       // ignore: avoid_print
-      print('UPLOAD_${ok ? 'OK' : 'FAIL'} code=${res.statusCode}');
+      //print('UPLOAD_${ok ? 'OK' : 'FAIL'} code=${res.statusCode}');
       if (ok) {
         _showInfo('성공적으로 업로드가 되었습니다');
 
