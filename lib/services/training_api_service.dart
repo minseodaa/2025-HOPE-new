@@ -43,20 +43,20 @@ class TrainingApiService {
     }
   }
 
-  void _ok(String m)  => print('\x1B[32m[OK] $m\x1B[0m');
+  void _ok(String m) => print('\x1B[32m[OK] $m\x1B[0m');
   void _err(String m) => print('\x1B[31m[ERR] $m\x1B[0m');
-  void _401()         => print('\x1B[33m[401] retry with fresh token\x1B[0m');
+  void _401() => print('\x1B[33m[401] retry with fresh token\x1B[0m');
 
   // ---------------------- Endpoints ----------------------
 
   /// 세션 목록 조회
   /// 응답 스키마(스웨거): { "sessions": [...], "nextPageToken": "..." }
   Future<Map<String, dynamic>> fetchSessions({
-    String? expr,           // neutral | smile | angry | sad
-    String? status,         // ongoing | completed
-    DateTime? from,         // ISO8601
-    DateTime? to,           // ISO8601
-    int pageSize = 20,      // default 20
+    String? expr, // neutral | smile | angry | sad
+    String? status, // ongoing | completed
+    DateTime? from, // ISO8601
+    DateTime? to, // ISO8601
+    int pageSize = 20, // default 20
     String? pageToken,
   }) async {
     final url = _uri('/training/sessions', {
@@ -100,7 +100,7 @@ class TrainingApiService {
   /// req: { "expr": "smile" }
   /// res: { "sid": "..." }
   Future<String> startSession(String expr) async {
-    final url  = _uri('/training/sessions');
+    final url = _uri('/training/sessions');
     final body = jsonEncode({'expr': expr});
 
     var res = await _client
@@ -140,15 +140,18 @@ class TrainingApiService {
     // 방어적 길이 보정: 서버 검증이 15프레임을 기대
     final fixed = List<Map<String, Map<String, num>>>.from(frames);
     while (fixed.length < 15) {
-      fixed.add(fixed.isNotEmpty ? fixed.last : {'noop': {'x': 0, 'y': 0}});
+      fixed.add(
+        fixed.isNotEmpty
+            ? fixed.last
+            : {
+                'noop': {'x': 0, 'y': 0},
+              },
+      );
     }
     if (fixed.length > 15) fixed.removeRange(15, fixed.length);
 
-    final url  = _uri('/training/sessions/$sid/sets');
-    final body = jsonEncode({
-      'score': score,
-      'frames': fixed,
-    });
+    final url = _uri('/training/sessions/$sid/sets');
+    final body = jsonEncode({'score': score, 'frames': fixed});
 
     var res = await _client
         .post(url, headers: await _headers(), body: body)
@@ -203,7 +206,7 @@ class TrainingApiService {
     String? summary,
     double? finalScore,
   }) async {
-    final url  = _uri('/training/sessions/$sid');
+    final url = _uri('/training/sessions/$sid');
     final body = jsonEncode({
       if (summary != null) 'summary': summary,
       if (finalScore != null) 'finalScore': finalScore,

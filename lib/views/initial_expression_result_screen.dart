@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
 import '../utils/constants.dart';
 import '../utils/score_converter.dart';
 import '../models/expression_type.dart';
+import '../config/app_config.dart';
 
 /// 초기 표정 기록(요약) 화면
 /// 측정된 표정 점수를 차트로 표시하고 다음 단계로 안내
-class InitialExpressionResultScreen extends StatelessWidget {
+class InitialExpressionResultScreen extends StatefulWidget {
   final Map<ExpressionType, double> expressionScores;
 
   const InitialExpressionResultScreen({
     super.key,
     required this.expressionScores,
   });
+
+  @override
+  State<InitialExpressionResultScreen> createState() =>
+      _InitialExpressionResultScreenState();
+}
+
+class _InitialExpressionResultScreenState
+    extends State<InitialExpressionResultScreen> {
+  bool _isUploading = false; // 점수 데이터 전송 진행 여부
 
   @override
   Widget build(BuildContext context) {
@@ -49,11 +62,21 @@ class InitialExpressionResultScreen extends StatelessWidget {
             SizedBox(
               height: 56,
               child: FilledButton(
-                onPressed: () {
-                  // home_screen.dart로 이동
-                  Get.offAllNamed('/home');
-                },
-                child: const Text('훈련하러 가기'),
+                onPressed: _isUploading ? null : _handleTrainingButtonPress,
+                child: _isUploading
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 12),
+                          Text('전송 중...'),
+                        ],
+                      )
+                    : const Text('훈련하러 가기'),
               ),
             ),
           ],
@@ -88,7 +111,7 @@ class InitialExpressionResultScreen extends StatelessWidget {
         Expanded(
           child: Column(
             children: expressions.map((expression) {
-              final score = expressionScores[expression] ?? 0.0;
+              final score = widget.expressionScores[expression] ?? 0.0;
               final level = ScoreConverter.getScoreLevel(score);
               final color = ScoreConverter.getScoreColor(score);
 
@@ -279,5 +302,96 @@ class InitialExpressionResultScreen extends StatelessWidget {
       case ExpressionType.sad:
         return '슬픈표정';
     }
+  }
+
+  /// 훈련하러 가기 버튼 처리
+  Future<void> _handleTrainingButtonPress() async {
+    // 점수 데이터를 서버로 전송
+    final success = await _uploadScoreData();
+
+    if (success) {
+      // 전송 성공 시 홈 화면으로 이동
+      Get.offAllNamed('/home');
+    } else {
+      // 전송 실패 시 에러 메시지 표시
+      _showErrorDialog('점수 데이터 전송에 실패했습니다. 다시 시도해주세요.');
+    }
+  }
+
+  /// 점수 데이터를 서버로 전송
+  Future<bool> _uploadScoreData() async {
+    try {
+      setState(() => _isUploading = true);
+
+      // 점수 데이터를 JSON 형태로 변환
+      final Map<String, int> expressionScores = {};
+      for (final expression in widget.expressionScores.keys) {
+        final score = widget.expressionScores[expression] ?? 0.0;
+        expressionScores[expression.toString().split('.').last] = score.round();
+      }
+
+      final Map<String, dynamic> uploadData = {
+        'expressionScores': expressionScores,
+      };
+
+      // API 엔드포인트 설정
+      final Uri uri = Uri.parse(
+        '${AppConfig.apiBaseUrl}${AppConfig.firstfacePath()}',
+      );
+
+      // Firebase 인증 토큰 가져오기
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (idToken == null) {
+        throw Exception('인증 토큰을 가져올 수 없습니다.');
+      }
+
+      // HTTP POST 요청 전송
+      final http.Response response = await http.post(
+        uri,
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode(uploadData),
+      );
+
+      // 응답 상태 코드 확인
+      final bool success =
+          response.statusCode >= 200 && response.statusCode < 300;
+
+      // 로그 출력
+      print(
+        'SCORE_UPLOAD_${success ? 'OK' : 'FAIL'} code=${response.statusCode}',
+      );
+
+      return success;
+    } catch (e) {
+      print('SCORE_UPLOAD_ERROR: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  /// 에러 다이얼로그 표시
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('오류'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

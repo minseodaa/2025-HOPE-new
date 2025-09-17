@@ -35,7 +35,9 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
   Worker? _faceWatcher; // Rx 구독 해제용
   bool _canUpload = false; // 마지막(슬픔) 종료 후 업로드 버튼 표시 여부
   bool _isUploading = false; // 업로드 진행 여부
-  final Map<String, dynamic> _uploadData = {'expressions': <String, dynamic>{}};
+  final Map<String, dynamic> _uploadData = {
+    'expressionScores': <String, int>{},
+  };
 
   // 표정별 점수 수집을 위한 변수들
   final Map<ExpressionType, List<double>> _expressionScores = {
@@ -426,22 +428,8 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
       }
       buffer.writeln('^^^[$label] 15초 측정 결과^^^');
 
-      // 업로드용 표정 키 매핑
-      String key;
-      switch (current) {
-        case ExpressionType.neutral:
-          key = 'neutral';
-          break;
-        case ExpressionType.smile:
-          key = 'smile';
-          break;
-        case ExpressionType.angry:
-          key = 'angry';
-          break;
-        case ExpressionType.sad:
-          key = 'sad';
-          break;
-      }
+      // 업로드용 표정 키 매핑 (더 이상 사용하지 않음)
+      // key 변수는 제거됨 - 점수 데이터만 저장하도록 변경
       final Map<String, dynamic> pointsMap = <String, dynamic>{};
       for (final type in targets) {
         final pos = resolveLandmark(face, type);
@@ -485,9 +473,8 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
         );
       }
 
-      // 표정별 포인트를 업로드 페이로드에 저장
-      final expressions = _uploadData['expressions'] as Map<String, dynamic>;
-      expressions[key] = pointsMap;
+      // 표정별 포인트 데이터는 더 이상 _uploadData에 저장하지 않음
+      // (점수 데이터만 저장하도록 변경됨)
 
       final String out = buffer.toString().trim();
       if (out.isNotEmpty) {
@@ -509,28 +496,38 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
       );
       final String body = jsonEncode(_uploadData);
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-      // final http.Response res = await http.post(
-      //   uri,
-      //   headers: {
-      //     'accept': 'application/json',
-      //     'Content-Type': 'application/json',
-      //     'Authorization': 'Bearer $idToken',
-      //   },
-      //   body: body,
-      // );
-      final bool ok = true; //res.statusCode >= 200 && res.statusCode < 300;
+      final http.Response res = await http.post(
+        uri,
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: body,
+      );
+      final bool ok = true;
+      res.statusCode >= 200 && res.statusCode < 300;
       // 전송 유무 로그 출력
       // ignore: avoid_print
-      //print('UPLOAD_${ok ? 'OK' : 'FAIL'} code=${res.statusCode}');
+      print('UPLOAD_${ok ? 'OK' : 'FAIL'} code=${res.statusCode}');
       if (ok) {
         _showInfo('성공적으로 업로드가 되었습니다');
 
-        // 수집된 점수들을 0~5 범위로 변환하여 평균 계산
+        // 수집된 점수들을 0~100 범위로 변환하여 평균 계산
         final Map<ExpressionType, double> averageScores = {};
+        final expressionScores =
+            _uploadData['expressionScores'] as Map<String, int>;
+
         for (final expression in ExpressionType.values) {
           final scores = _expressionScores[expression] ?? [];
-          averageScores[expression] =
-              ScoreConverter.calculateAverageDisplayScore(scores);
+          final averageScore = ScoreConverter.calculateAverageDisplayScore(
+            scores,
+          );
+          averageScores[expression] = averageScore;
+
+          // _uploadData에 점수 데이터 저장 (정수로 변환)
+          expressionScores[expression.toString().split('.').last] = averageScore
+              .round();
         }
 
         // 다음 화면 이동 (점수 데이터 전달)
