@@ -23,7 +23,8 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
   bool _loading = true;
   String? _error;
 
-  int? _selectedIndex; // 차트에서 선택된 포인트 인덱스
+  // ✅ 1. 클릭된 점을 기억하던 상태 변수 삭제
+  // int? _selectedIndex;
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
 
   double _normalizeScore(num raw) {
     final d = raw.toDouble();
+    if (d.isNaN) return 0.0; // NaN 값 방어 코드
     // 서버가 0~1 스케일로 줄 수도 있어 자동 노멀라이즈
     return d <= 1.5 ? (d * 100.0) : d;
   }
@@ -44,75 +46,74 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
     setState(() {
       _loading = true;
       _error = null;
-      _selectedIndex = null;
+      // _selectedIndex = null; // ✅ 관련 로직 삭제
     });
 
     try {
-      Map<String, dynamic> list;
-      try {
-        list = await _api.fetchSessions(
-          expr: widget.expressionType.name,
-          status: 'completed',
-          pageSize: 50,
-        );
-      } catch (_) {
-        list = await _api.fetchSessions(
-          expr: widget.expressionType.name,
-          pageSize: 50,
-        );
-      }
+      final list = await _api.fetchSessions(
+        expr: widget.expressionType.name,
+        pageSize: 50,
+      );
 
-      final sessions = (list['sessions'] as List?) ?? const [];
+      final sessions = (list['sessions'] as List?)?.whereType<Map>().toList() ?? const [];
       final result = <_Point>[];
 
       for (final raw in sessions) {
-        if (raw is! Map) continue;
+        final sid = (raw['sid'] ?? raw['id'])?.toString();
+        final timestampObject = raw['completedAt'] ?? raw['startedAt'];
 
-        final sid = raw['sid']?.toString();
-        final updatedAtStr = (raw['updatedAt'] ?? raw['createdAt'])?.toString();
-        if (sid == null || updatedAtStr == null) continue;
+        if (sid == null || timestampObject == null) continue;
 
-        final date = DateTime.tryParse(updatedAtStr);
-        if (date == null) continue;
-
-        double? score =
-        (raw['finalScore'] is num) ? _normalizeScore(raw['finalScore']) : null;
-
-        String? lastFrameImageB64;
-        double? lastSetScore;
-
-        try {
-          final detail = await _api.fetchSessionDetail(sid);
-          final sets = (detail['session']?['sets'] as List?) ?? const [];
-          if (sets.isNotEmpty) {
-            final lastSet = (sets.last as Map?) ?? const {};
-            final img = lastSet['lastFrameImage'];
-            final setScore = lastSet['score'];
-            if (img is String && img.isNotEmpty) {
-              lastFrameImageB64 = _stripPrefix(img);
-            }
-            if (setScore is num) {
-              lastSetScore = _normalizeScore(setScore);
-            }
+        DateTime? date;
+        if (timestampObject is Map && timestampObject.containsKey('_seconds')) {
+          final int seconds = timestampObject['_seconds'];
+          date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+        } else if (timestampObject is String) {
+          try {
+            final format = DateFormat("yyyy년 MM월 dd일 a h시 m분 s초 'UTC'+9", 'ko');
+            date = format.parse(timestampObject);
+          } catch (e) {
+            date = DateTime.tryParse(timestampObject);
           }
-        } catch (_) {
-          // 상세 실패는 무시
         }
 
-        score ??= lastSetScore;
+        if (date == null) continue;
+
+        double? score = (raw['finalScore'] is num) ? _normalizeScore(raw['finalScore']) : null;
+        String? lastFrameImageB64;
+
+        if (score == null) {
+          try {
+            final detail = await _api.fetchSessionDetail(sid);
+            final sets = (detail['session']?['sets'] as List?) ?? const [];
+            if (sets.isNotEmpty) {
+              final lastSet = (sets.last as Map?) ?? const {};
+              if (lastSet['score'] is num) {
+                score = _normalizeScore(lastSet['score']);
+              }
+              final img = lastSet['lastFrameImage'];
+              if (img is String && img.isNotEmpty) {
+                lastFrameImageB64 = _stripPrefix(img);
+              }
+            }
+          } catch (_) {
+            // 상세 정보 조회 실패는 무시합니다.
+          }
+        }
+
         if (score == null) continue;
 
         result.add(_Point(
           date: date,
           score: score.clamp(0, 100),
-          lastImageBase64: lastFrameImageB64,
+          lastFrameImageB64: lastFrameImageB64,
         ));
       }
 
       result.sort((a, b) => a.date.compareTo(b.date));
       setState(() => _points = result);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = "데이터를 불러오는 데 실패했습니다: ${e.toString()}");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -149,92 +150,33 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text('오류: $_error'))
+          ? Center(child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text('오류가 발생했습니다:\n$_error', textAlign: TextAlign.center),
+      ))
           : Padding(
         padding: const EdgeInsets.all(AppSizes.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: LineChart(_chartData(df))),
-            const SizedBox(height: AppSizes.md),
-            _buildSelectedPreview(df),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedPreview(DateFormat df) {
-    if (_selectedIndex == null ||
-        _selectedIndex! < 0 ||
-        _selectedIndex! >= _points.length) {
-      return const SizedBox.shrink();
-    }
-    final p = _points[_selectedIndex!];
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.md),
-        child: Row(
-          children: [
-            if ((p.lastImageBase64 ?? '').isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.memory(
-                  base64Decode(p.lastImageBase64!),
-                  width: 96,
-                  height: 72,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                ),
-              )
-            else
-              Container(
-                width: 96,
-                height: 72,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.image_not_supported, size: 28),
-              ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(df.format(p.date),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text('진척도: ${p.score.toStringAsFixed(1)}'),
-                ],
-              ),
+                child: _points.isEmpty
+                    ? const Center(child: Text('표시할 훈련 기록이 없습니다.'))
+                    : LineChart(_chartData(df))
             ),
-            IconButton(
-              onPressed: () => setState(() => _selectedIndex = null),
-              icon: const Icon(Icons.close),
-              tooltip: '닫기',
-            )
+            // ✅ 2. 화면 하단에 위젯을 표시하던 부분을 삭제
+            // const SizedBox(height: AppSizes.md),
+            // _buildSelectedPreview(df),
           ],
         ),
       ),
     );
   }
+
+  // ✅ 3. 위젯을 만들던 함수 전체를 삭제
+  // Widget _buildSelectedPreview(DateFormat df) { ... }
 
   LineChartData _chartData(DateFormat df) {
-    if (_points.isEmpty) {
-      return LineChartData(
-        titlesData: const FlTitlesData(show: false),
-        lineBarsData: const [],
-      );
-    }
-
     final spots = <FlSpot>[];
     for (var i = 0; i < _points.length; i++) {
       spots.add(FlSpot(i.toDouble(), _points[i].score));
@@ -243,10 +185,10 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
     return LineChartData(
       minY: 0,
       maxY: 100,
-      gridData: const FlGridData(show: true),
+      gridData: const FlGridData(show: true, drawVerticalLine: false),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+          sideTitles: SideTitles(showTitles: true, reservedSize: 32, interval: 25),
         ),
         rightTitles:
         const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -256,9 +198,13 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 28,
+            interval: 1,
             getTitlesWidget: (value, meta) {
               final idx = value.toInt();
               if (idx < 0 || idx >= _points.length) {
+                return const SizedBox.shrink();
+              }
+              if (_points.length > 10 && idx % 2 != 0) {
                 return const SizedBox.shrink();
               }
               return Padding(
@@ -270,22 +216,11 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
           ),
         ),
       ),
-      borderData: FlBorderData(show: true),
+      borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300)),
       lineTouchData: LineTouchData(
         handleBuiltInTouches: true,
-        touchCallback: (event, response) {
-          if (!event.isInterestedForInteractions ||
-              response == null ||
-              response.lineBarSpots == null ||
-              response.lineBarSpots!.isEmpty) {
-            setState(() => _selectedIndex = null);
-            return;
-          }
-          final idx = response.lineBarSpots!.first.x.toInt();
-          if (idx >= 0 && idx < _points.length) {
-            setState(() => _selectedIndex = idx);
-          }
-        },
+        // ✅ 4. 터치 시 _selectedIndex를 변경하던 로직 삭제 (툴팁은 그대로 유지됨)
+        // touchCallback: (event, response) { ... },
         touchTooltipData: LineTouchTooltipData(
           tooltipRoundedRadius: 10,
           fitInsideHorizontally: true,
@@ -295,7 +230,7 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
               final idx = s.x.toInt();
               final p = _points[idx];
               return LineTooltipItem(
-                '${df.format(p.date)}\n점수: ${p.score.toStringAsFixed(1)}',
+                '${df.format(p.date)}\n점수: ${p.score.toStringAsFixed(1)}%',
                 const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -325,11 +260,11 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
 class _Point {
   final DateTime date;
   final double score; // 0~100
-  final String? lastImageBase64; // base64 (nullable)
+  final String? lastFrameImageB64; // base64 (nullable)
 
   _Point({
     required this.date,
     required this.score,
-    required this.lastImageBase64,
+    this.lastFrameImageB64,
   });
 }
