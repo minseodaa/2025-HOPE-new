@@ -9,7 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../models/expression_type.dart';
 import '../models/training_record.dart';
-import '../services/training_record_service.dart';
+import '../services/training_api_service.dart';
 import '../utils/constants.dart';
 import 'expression_select_screen.dart';
 import 'training_summary_screen.dart';
@@ -35,7 +35,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      // 화면이 작아도 스크롤로 보이도록
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(AppSizes.lg),
@@ -62,7 +61,6 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: AppSizes.xl),
               const _SectionHeader(title: '훈련기록'),
               const SizedBox(height: AppSizes.md),
-              // 고정 높이 그래프 카드
               SizedBox(
                 height: 250,
                 child: InkWell(
@@ -73,7 +71,7 @@ class HomeScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.lg),
                     ),
-                    clipBehavior: Clip.antiAlias,
+                    clipBehavior: Clip.none,
                     child: const Padding(
                       padding: EdgeInsets.fromLTRB(
                         AppSizes.lg,
@@ -103,53 +101,91 @@ class _OverallProgressChart extends StatefulWidget {
 }
 
 class _OverallProgressChartState extends State<_OverallProgressChart> {
-  final TrainingRecordService _recordService = TrainingRecordService();
+  final TrainingApiService _apiService = TrainingApiService();
+
+  List<TrainingRecord> _convertApiDataToRecords(List<dynamic> sessions) {
+    final records = <TrainingRecord>[];
+    for (final session in sessions) {
+      if (session is! Map<String, dynamic>) continue;
+
+      final exprString = session['expr'] as String?;
+      final score = (session['finalScore'] as num?)?.toDouble();
+      final timestampObject = session['completedAt'] ?? session['startedAt'];
+
+      if (exprString == null || score == null || timestampObject == null) continue;
+
+      DateTime? date;
+      if (timestampObject is Map && timestampObject.containsKey('_seconds')) {
+        date = DateTime.fromMillisecondsSinceEpoch(timestampObject['_seconds'] * 1000);
+      } else if (timestampObject is String) {
+        date = DateTime.tryParse(timestampObject);
+      }
+
+      final expressionType = ExpressionType.values.firstWhereOrNull((e) => e.name == exprString);
+
+      if (date != null && expressionType != null) {
+        records.add(TrainingRecord(
+          timestamp: date,
+          expressionType: expressionType,
+          score: score,
+        ));
+      }
+    }
+    return records;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<TrainingRecord>>(
-      future: _recordService.getAllRecords(),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _apiService.fetchSessions(pageSize: 100),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const Center(child: Text('기록을 불러올 수 없습니다.'));
+        }
+
+        final sessions = snapshot.data!['sessions'] as List<dynamic>;
+        if (sessions.isEmpty) {
           return const Center(child: Text('훈련 기록이 없습니다.'));
         }
 
-        final records = snapshot.data!;
+        final records = _convertApiDataToRecords(sessions);
         final recordsByDate = groupBy(records, (TrainingRecord r) => r.dateKey);
 
-        // 날짜별 평균(0~1)을 계산한 뒤 0~100으로 변환
         final Map<DateTime, double> dailyAverages = {};
         recordsByDate.forEach((dateKey, recordsOnDate) {
           final date = DateFormat('yyyy-MM-dd').parse(dateKey);
-          double totalScore = 0;
-          for (var type in ExpressionType.values) {
-            final recordForType =
-            recordsOnDate.firstWhereOrNull((r) => r.expressionType == type);
-            totalScore += recordForType?.score ?? 0;
+
+          final List<double> trainedScores = [];
+          for(var type in ExpressionType.values) {
+            final bestScore = recordsOnDate
+                .where((r) => r.expressionType == type)
+                .map((r) => r.score)
+                .maxOrNull;
+
+            if (bestScore != null) {
+              trainedScores.add(bestScore);
+            }
           }
-          dailyAverages[date] =
-              (totalScore / ExpressionType.values.length) * 100.0;
+
+          if (trainedScores.isNotEmpty) {
+            final averageScore = trainedScores.reduce((a, b) => a + b) / trainedScores.length;
+            dailyAverages[date] = averageScore * 100.0;
+          }
         });
 
         final sortedDates = dailyAverages.keys.toList()..sort();
-
-        final List<FlSpot> spots = sortedDates.asMap().entries.map((entry) {
-          final idx = entry.key.toDouble();
-          final d = entry.value;
-          return FlSpot(idx, dailyAverages[d]!);
-        }).toList();
-
-        if (spots.isEmpty) {
+        if (sortedDates.isEmpty) {
           return const Center(child: Text('표시할 기록이 없습니다.'));
         }
 
-        // 날짜 라벨 간격(데이터가 많으면 2~3칸 간격으로)
-        final step = sortedDates.length > 14
-            ? 3
-            : (sortedDates.length > 7 ? 2 : 1);
+        final List<FlSpot> spots = sortedDates.asMap().entries.map((entry) {
+          final idx = entry.key.toDouble();
+          final date = entry.value;
+          return FlSpot(idx, dailyAverages[date]!);
+        }).toList();
 
         return LineChart(
           LineChartData(
@@ -159,30 +195,29 @@ class _OverallProgressChartState extends State<_OverallProgressChart> {
               show: true,
               drawVerticalLine: false,
               horizontalInterval: 25,
-              getDrawingHorizontalLine: (v) => FlLine(
-                strokeWidth: 0.5,
-                color: AppColors.textTertiary.withOpacity(0.2),
+              getDrawingHorizontalLine: (value) => const FlLine(
+                color: AppColors.border,
+                strokeWidth: 1,
               ),
             ),
             borderData: FlBorderData(show: false),
             titlesData: FlTitlesData(
-              topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 28,
+                  reservedSize: 32,
                   interval: 25,
                   getTitlesWidget: (value, meta) {
-                    final v = value.round();
-                    if (v % 25 != 0) return const SizedBox.shrink();
-                    return Text(
-                      '$v',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textTertiary,
+                    if (value == meta.min || value == meta.max) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        value.toInt().toString(),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
                       ),
                     );
                   },
@@ -191,23 +226,18 @@ class _OverallProgressChartState extends State<_OverallProgressChart> {
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 24,
-                  interval: 1,
+                  reservedSize: 30,
+                  interval: (sortedDates.length / 4).ceilToDouble(),
                   getTitlesWidget: (value, meta) {
-                    final idx = value.round();
-                    if (idx < 0 || idx >= sortedDates.length) {
-                      return const SizedBox.shrink();
-                    }
-                    if (idx % step != 0) return const SizedBox.shrink();
-                    final d = sortedDates[idx];
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                    final idx = value.toInt();
+                    if (idx >= sortedDates.length) return const SizedBox.shrink();
+                    final date = sortedDates[idx];
+                    return SideTitleWidget(
+                      axisSide: meta.axisSide,
+                      space: 8.0,
                       child: Text(
-                        DateFormat('MM/dd').format(d), // x축: 날짜
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textTertiary,
-                        ),
+                        DateFormat('M/d').format(date),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
                       ),
                     );
                   },
@@ -215,36 +245,55 @@ class _OverallProgressChartState extends State<_OverallProgressChart> {
               ),
             ),
             lineTouchData: LineTouchData(
-              enabled: true,
+              handleBuiltInTouches: true,
               touchTooltipData: LineTouchTooltipData(
-                getTooltipColor: (touchedSpot) => AppColors.surface,  // ✅ 최신 fl_chart 대응
-                getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
-                  final idx = s.x.round().clamp(0, sortedDates.length - 1);
-                  final dateStr = DateFormat('yyyy-MM-dd').format(sortedDates[idx]);
-                  return LineTooltipItem(
-                    '$dateStr\n${s.y.toStringAsFixed(0)}%',
-                    const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
+                getTooltipColor: (touchedSpot) => AppColors.primary.withOpacity(0.8),
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final date = sortedDates[spot.spotIndex];
+                    return LineTooltipItem(
+                      '${DateFormat('M월 d일').format(date)}\n',
+                      const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      children: [
+                        TextSpan(
+                          text: '평균 ${spot.y.toStringAsFixed(0)}%',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                        ),
+                      ],
+                    );
+                  }).toList();
+                },
+              ),
+              getTouchedSpotIndicator: (barData, spotIndexes) {
+                return spotIndexes.map((index) {
+                  return TouchedSpotIndicatorData(
+                    const FlLine(color: AppColors.primary, strokeWidth: 2, dashArray: [4, 4]),
+                    FlDotData(
+                      getDotPainter: (spot, percent, barData, index) =>
+                          FlDotCirclePainter(
+                            radius: 6,
+                            color: AppColors.primary,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          ),
                     ),
                   );
-                }).toList(),
-              ),
+                }).toList();
+              },
             ),
-
             lineBarsData: [
               LineChartBarData(
                 spots: spots,
                 isCurved: true,
                 color: AppColors.primary,
-                barWidth: 4,
+                barWidth: 3,
                 isStrokeCapRound: true,
-                dotData: const FlDotData(show: true),
+                dotData: const FlDotData(show: false),
                 belowBarData: BarAreaData(
                   show: true,
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.primary.withOpacity(0.25),
+                      AppColors.primary.withOpacity(0.3),
                       AppColors.primary.withOpacity(0.0),
                     ],
                     begin: Alignment.topCenter,
@@ -260,8 +309,7 @@ class _OverallProgressChartState extends State<_OverallProgressChart> {
   }
 }
 
-// ------------------------------ 공통 UI -------------------------------
-
+// UI 위젯
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader({required this.title});
