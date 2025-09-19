@@ -1,6 +1,6 @@
-import 'dart:convert';
+// ## 파일: lib/views/training_log_screen.dart ##
+
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
@@ -23,36 +23,22 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
   bool _loading = true;
   String? _error;
 
-  // ✅ 1. 클릭된 점을 기억하던 상태 변수 삭제
-  // int? _selectedIndex;
-
   @override
   void initState() {
     super.initState();
     _load();
   }
 
-  String _stripPrefix(String s) =>
-      s.replaceFirst(RegExp(r'^data:image/[^;]+;base64,'), '');
-
-  double _normalizeScore(num raw) {
-    final d = raw.toDouble();
-    if (d.isNaN) return 0.0; // NaN 값 방어 코드
-    // 서버가 0~1 스케일로 줄 수도 있어 자동 노멀라이즈
-    return d <= 1.5 ? (d * 100.0) : d;
-  }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
-      // _selectedIndex = null; // ✅ 관련 로직 삭제
     });
 
     try {
       final list = await _api.fetchSessions(
         expr: widget.expressionType.name,
-        pageSize: 50,
+        pageSize: 100, // 더 많은 기록을 가져올 수 있도록 페이지 크기 조정
       );
 
       final sessions = (list['sessions'] as List?)?.whereType<Map>().toList() ?? const [];
@@ -64,49 +50,33 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
 
         if (sid == null || timestampObject == null) continue;
 
+        //  ProgressController와 동일한, 최종 날짜 처리 로직
         DateTime? date;
         if (timestampObject is Map && timestampObject.containsKey('_seconds')) {
-          final int seconds = timestampObject['_seconds'];
-          date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+          date = DateTime.fromMillisecondsSinceEpoch(timestampObject['_seconds'] * 1000);
         } else if (timestampObject is String) {
           try {
             final format = DateFormat("yyyy년 MM월 dd일 a h시 m분 s초 'UTC'+9", 'ko');
             date = format.parse(timestampObject);
           } catch (e) {
-            date = DateTime.tryParse(timestampObject);
+            date = DateTime.tryParse(timestampObject)?.toLocal();
           }
         }
 
         if (date == null) continue;
 
-        double? score = (raw['finalScore'] is num) ? _normalizeScore(raw['finalScore']) : null;
-        String? lastFrameImageB64;
-
-        if (score == null) {
-          try {
-            final detail = await _api.fetchSessionDetail(sid);
-            final sets = (detail['session']?['sets'] as List?) ?? const [];
-            if (sets.isNotEmpty) {
-              final lastSet = (sets.last as Map?) ?? const {};
-              if (lastSet['score'] is num) {
-                score = _normalizeScore(lastSet['score']);
-              }
-              final img = lastSet['lastFrameImage'];
-              if (img is String && img.isNotEmpty) {
-                lastFrameImageB64 = _stripPrefix(img);
-              }
-            }
-          } catch (_) {
-            // 상세 정보 조회 실패는 무시합니다.
-          }
-        }
+        var score = (raw['finalScore'] as num?)?.toDouble();
 
         if (score == null) continue;
 
+        // ProgressController와 동일한, 점수 정규화 로직
+        if (score > 1.0) {
+          score = score / 100.0;
+        }
+
         result.add(_Point(
           date: date,
-          score: score.clamp(0, 100),
-          lastFrameImageB64: lastFrameImageB64,
+          score: (score * 100.0).clamp(0, 100), // 표시를 위해 0~100으로 변환
         ));
       }
 
@@ -121,20 +91,16 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
 
   String _title() {
     switch (widget.expressionType) {
-      case ExpressionType.smile:
-        return '웃는 표정';
-      case ExpressionType.sad:
-        return '슬픈 표정';
-      case ExpressionType.angry:
-        return '화난 표정';
-      case ExpressionType.neutral:
-        return '무표정';
+      case ExpressionType.smile: return '웃는 표정';
+      case ExpressionType.sad: return '슬픈 표정';
+      case ExpressionType.angry: return '화난 표정';
+      case ExpressionType.neutral: return '무표정';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat('MM/dd');
+    final df = DateFormat('M/d');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -164,17 +130,11 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
                     ? const Center(child: Text('표시할 훈련 기록이 없습니다.'))
                     : LineChart(_chartData(df))
             ),
-            // ✅ 2. 화면 하단에 위젯을 표시하던 부분을 삭제
-            // const SizedBox(height: AppSizes.md),
-            // _buildSelectedPreview(df),
           ],
         ),
       ),
     );
   }
-
-  // ✅ 3. 위젯을 만들던 함수 전체를 삭제
-  // Widget _buildSelectedPreview(DateFormat df) { ... }
 
   LineChartData _chartData(DateFormat df) {
     final spots = <FlSpot>[];
@@ -204,7 +164,8 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
               if (idx < 0 || idx >= _points.length) {
                 return const SizedBox.shrink();
               }
-              if (_points.length > 10 && idx % 2 != 0) {
+              // 데이터가 많을 때 라벨 겹침 방지
+              if (_points.length > 8 && idx % 2 != 0 && idx != _points.length - 1) {
                 return const SizedBox.shrink();
               }
               return Padding(
@@ -219,8 +180,6 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
       borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300)),
       lineTouchData: LineTouchData(
         handleBuiltInTouches: true,
-        // ✅ 4. 터치 시 _selectedIndex를 변경하던 로직 삭제 (툴팁은 그대로 유지됨)
-        // touchCallback: (event, response) { ... },
         touchTooltipData: LineTouchTooltipData(
           tooltipRoundedRadius: 10,
           fitInsideHorizontally: true,
@@ -228,6 +187,7 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
           getTooltipItems: (list) {
             return list.map((s) {
               final idx = s.x.toInt();
+              if (idx < 0 || idx >= _points.length) return null;
               final p = _points[idx];
               return LineTooltipItem(
                 '${df.format(p.date)}\n점수: ${p.score.toStringAsFixed(1)}%',
@@ -236,7 +196,7 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
                   color: Colors.white,
                 ),
               );
-            }).toList();
+            }).whereType<LineTooltipItem>().toList();
           },
         ),
       ),
@@ -260,11 +220,9 @@ class _TrainingLogScreenState extends State<TrainingLogScreen> {
 class _Point {
   final DateTime date;
   final double score; // 0~100
-  final String? lastFrameImageB64; // base64 (nullable)
 
   _Point({
     required this.date,
     required this.score,
-    this.lastFrameImageB64,
   });
 }

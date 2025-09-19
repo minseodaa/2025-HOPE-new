@@ -2,54 +2,72 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../utils/constants.dart';
 import '../models/expression_type.dart';
-// TrainingRecordService 대신 TrainingApiService를 사용합니다.
 import '../services/training_api_service.dart';
+import '../services/training_record_service.dart';
 import 'training_log_screen.dart';
-import 'package:collection/collection.dart'; // groupBy 사용을 위해 추가
 
 class TrainingSummaryScreen extends StatefulWidget {
   const TrainingSummaryScreen({super.key});
-
   @override
   State<TrainingSummaryScreen> createState() => _TrainingSummaryScreenState();
 }
 
 class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
-  // TrainingRecordService 대신 TrainingApiService를 사용합니다.
   final TrainingApiService _apiService = TrainingApiService();
+  final TrainingRecordService _recordService = TrainingRecordService();
+  late final Future<Map<ExpressionType, double>> _personalBestScoresFuture;
 
-  // 서버에서 가져온 모든 기록 중에서 표정별 최고 점수를 계산하는 함수
-  Map<ExpressionType, double> _calculateBestScores(List<dynamic> sessions) {
-    final bestScores = <ExpressionType, double>{};
+  @override
+  void initState() {
+    super.initState();
+    _personalBestScoresFuture = _fetchAndCalculatePersonalBestScores();
+  }
 
-    // 1. 모든 표정 타입을 0점으로 초기화
+  Future<Map<ExpressionType, double>> _fetchAndCalculatePersonalBestScores() async {
+    final results = await Future.wait([
+      _apiService.fetchInitialScores(),
+      _apiService.fetchSessions(pageSize: 1000),
+    ]);
+
+    final initialScoresData = results[0];
+    final trainingSessionsData = results[1];
+
+    final personalBest = <ExpressionType, double>{};
+    final initialExpressionScores = initialScoresData['expressionScores'] as Map<String, dynamic>? ?? {};
+
     for (var type in ExpressionType.values) {
-      bestScores[type] = 0.0;
+      final score = (initialExpressionScores[type.name] as num?)?.toDouble() ?? 0.0;
+      personalBest[type] = score / 100.0;
     }
 
-    // 2. 서버에서 받은 데이터를 순회하며 최고 점수 갱신
+    final sessions = trainingSessionsData['sessions'] as List<dynamic>;
     for (final session in sessions) {
       if (session is! Map<String, dynamic>) continue;
 
       final exprString = session['expr'] as String?;
-      // 점수는 0~1 범위로 계산
-      final score = (session['finalScore'] as num?)?.toDouble();
+      var score = (session['finalScore'] as num?)?.toDouble();
 
       if (exprString == null || score == null) continue;
+
+      if (score > 1.0) {
+        score = score / 100.0;
+      }
 
       final type = ExpressionType.values.firstWhereOrNull((e) => e.name == exprString);
 
       if (type != null) {
-        final currentBest = bestScores[type] ?? 0.0;
+        final currentBest = personalBest[type] ?? 0.0;
         if (score > currentBest) {
-          bestScores[type] = score; // 더 높은 점수가 나오면 갱신
+          personalBest[type] = score;
         }
       }
     }
-    return bestScores;
+    return personalBest;
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -60,24 +78,23 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
         backgroundColor: AppColors.surface,
         centerTitle: true,
       ),
-      // FutureBuilder가 이제 서버에서 직접 데이터를 가져옵니다.
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _apiService.fetchSessions(pageSize: 100), // 모든 기록을 가져옴
+      body: FutureBuilder<Map<ExpressionType, double>>(
+        future: _personalBestScoresFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(child: Text('기록을 불러올 수 없습니다.'));
+          if (snapshot.hasError) {
+            return Center(child: Text('기록을 불러올 수 없습니다: ${snapshot.error}'));
           }
 
-          final sessions = snapshot.data!['sessions'] as List<dynamic>;
-          // 받아온 데이터로 표정별 최고 점수 계산
-          final bestScores = _calculateBestScores(sessions);
-
-          if (sessions.isEmpty) {
+          final bestScores = snapshot.data ?? {};
+          if (bestScores.values.every((score) => score == 0.0)) {
             return const Center(child: Text('저장된 기록이 없습니다.'));
           }
+
+          // 1. 버튼 표시 조건: 모든 표정의 최고 기록이 100% (1.0) 이상인지 확인
+          final bool isAllCompleted = bestScores.values.every((score) => score >= 1.0);
 
           return SingleChildScrollView(
             child: Padding(
@@ -91,8 +108,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                       const crossAxisCount = 2;
                       const spacing = AppSizes.md;
                       final totalSpacing = spacing * (crossAxisCount - 1);
-                      final itemWidth =
-                          (constraints.maxWidth - totalSpacing) / crossAxisCount;
+                      final itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
                       const desiredItemHeight = 250.0;
                       final ratio = itemWidth / desiredItemHeight;
 
@@ -104,7 +120,6 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                         mainAxisSpacing: spacing,
                         childAspectRatio: ratio,
                         children: ExpressionType.values.map((type) {
-                          // 계산된 최고 점수를 카드에 전달
                           return _buildExpressionCard(
                             context,
                             type,
@@ -114,6 +129,32 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                       );
                     },
                   ),
+
+                  // 2. 초기화 버튼 추가: 조건이 만족되면 화면에 버튼 표시
+                  if (isAllCompleted)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSizes.xl),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: const Text(
+                            '새로운 목표 설정하기 (초기화)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () async {
+                            // 3. 버튼 동작: 데이터 초기화 후 초기 측정 화면으로 이동
+                            await _recordService.resetAllProgress();
+                            Get.offAllNamed('/initial-expression');
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -138,7 +179,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('최고 기록 평균 (%)',
+            const Text('전체 진척도 평균',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             Text(
               '${averageScore.round()}%',
@@ -148,8 +189,6 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                 color: AppColors.primary,
               ),
             ),
-            // 초기화 버튼은 서버 API 없이는 구현이 어려워 잠시 비활성화
-            // TextButton(onPressed: () {}, child: const Text('초기화')),
           ],
         ),
       ),
@@ -158,7 +197,6 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
 
   Widget _buildExpressionCard(
       BuildContext context, ExpressionType type, double? score) {
-    // score는 0~1.0 범위의 값이므로 %로 변환
     final display = score != null ? (score * 100).round() : null;
 
     return Card(

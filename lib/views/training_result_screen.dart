@@ -7,6 +7,7 @@ import '../models/training_record.dart';
 import '../services/training_record_service.dart';
 import '../utils/constants.dart';
 import 'training_log_screen.dart';
+import '../controllers/progress_controller.dart';
 
 class TrainingResultScreen extends StatefulWidget {
   final ExpressionType expressionType;
@@ -24,20 +25,24 @@ class TrainingResultScreen extends StatefulWidget {
 
 class _TrainingResultScreenState extends State<TrainingResultScreen> {
   final TrainingRecordService _recordService = TrainingRecordService();
+  final ProgressController _progressController = Get.find(); // ✅ 컨트롤러 인스턴스 찾기
 
   @override
   void initState() {
     super.initState();
-    // 화면이 열릴 때 훈련 기록을 자동으로 저장합니다.
-    _saveRecord();
+    _updateAndSaveRecord();
   }
 
-  Future<void> _saveRecord() async {
-    await _recordService.addRecord(TrainingRecord(
+  Future<void> _updateAndSaveRecord() async {
+    final newRecord = TrainingRecord(
       timestamp: DateTime.now(),
       expressionType: widget.expressionType,
       score: widget.finalScore,
-    ));
+    );
+    await _recordService.updateScoreAndAddRecord(newRecord);
+
+    // 전역 ProgressController에게 데이터 새로고침 요청
+    await _progressController.fetchAndUpdateProgress();
   }
 
   String _getTitle() {
@@ -61,7 +66,7 @@ class _TrainingResultScreenState extends State<TrainingResultScreen> {
         backgroundColor: AppColors.surface,
         centerTitle: true,
         elevation: 0,
-        automaticallyImplyLeading: false, // 뒤로가기 버튼 제거
+        automaticallyImplyLeading: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(AppSizes.xl),
@@ -97,7 +102,6 @@ class _TrainingResultScreenState extends State<TrainingResultScreen> {
             const Spacer(),
             ElevatedButton(
               onPressed: () {
-                // 상세 기록(그래프) 페이지로 이동
                 Get.to(() => TrainingLogScreen(expressionType: widget.expressionType));
               },
               style: ElevatedButton.styleFrom(
@@ -108,8 +112,7 @@ class _TrainingResultScreenState extends State<TrainingResultScreen> {
             const SizedBox(height: AppSizes.sm),
             TextButton(
               onPressed: () {
-                // 훈련 선택 화면으로 돌아가기 (스택의 맨 처음으로)
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                Get.offAllNamed('/home');
               },
               child: const Text('홈으로 돌아가기'),
             ),
