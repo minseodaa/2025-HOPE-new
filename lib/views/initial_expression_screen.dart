@@ -491,11 +491,11 @@ class _InitialExpressionScreenState extends State<InitialExpressionScreen> {
     setState(() => _isUploading = true);
 
     try {
-      final Uri uri = Uri.parse(
-        '${AppConfig.apiBaseUrl}${AppConfig.firstfacePath()}',
-      );
-      final String body = jsonEncode(_uploadData);
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      // final Uri uri = Uri.parse(
+      //   '${AppConfig.apiBaseUrl}${AppConfig.firstfacePath()}',
+      // );
+      // final String body = jsonEncode(_uploadData);
+      // final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       // final http.Response res = await http.post(
       //   uri,
       //   headers: {
