@@ -1,7 +1,7 @@
 class AppConfig {
   // 실서버 고정
   static const String apiBaseUrl =
-      'https://us-central1-hope-reface.cloudfunctions.net/api';
+      'https://asia-northeast3-hope-reface.cloudfunctions.net/api';
 
   static String signupPath() => '/auth/signup';
   static String firstfacePath() => '/expressions/initial';
