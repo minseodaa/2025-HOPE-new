@@ -6,13 +6,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 // import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 // import 'package:flutter_animate/flutter_animate.dart';
 
 import 'utils/constants.dart';
 import 'views/home_screen.dart';
 import 'views/login_screen.dart';
+import 'views/auth_gate.dart';
 import 'views/signup_screen.dart';
 import 'views/initial_expression_screen.dart';
 import 'views/initial_expression_result_screen.dart';
@@ -48,8 +48,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Pretendard',
       ),
-      initialRoute: '/login',
+      initialRoute: '/auth',
       getPages: [
+        GetPage(name: '/auth', page: () => const AuthGate()),
         GetPage(name: '/login', page: () => const LoginScreen()),
         GetPage(
           name: '/initial-expression',

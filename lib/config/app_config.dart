@@ -10,4 +10,5 @@ class AppConfig {
   static String trainingSessionDetailPath(String sid) =>
       '/training/sessions/$sid';
   static String saveSetPath(String sid) => '/training/sessions/$sid/sets';
+  static String trainingRecommendationsPath() => '/training/recommendations';
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:camera/camera.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../controllers/camera_controller.dart' as camera_ctrl;
 import '../utils/constants.dart';
@@ -40,13 +39,13 @@ class _TrainingScreenState extends State<TrainingScreen> {
   final int _totalSets = 3;
   _SessionPhase _phase = _SessionPhase.idle;
   bool _navigatedToResult = false;
+  bool _showLandmarks = true;
 
   // --- API 연동 ---
   final _api = TrainingApiService();
   String? _sid;
 
   final List<double> _setScores = [];
-
 
   void _showInfo(String text, {Color bg = const Color(0xFF323232)}) {
     Get.snackbar(
@@ -92,7 +91,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
     }
   }
 
-
   Future<void> _ensureServerSession() async {
     if (_sid != null) return;
     try {
@@ -118,7 +116,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
         _setScores.clear();
       }
       _navigatedToResult = false;
-      _showInfo('훈련 시작 - $_currentSet세트/$_totalSets세트 (15초)', bg: AppColors.accent);
+      _showInfo(
+        '훈련 시작 - $_currentSet세트/$_totalSets세트 (15초)',
+        bg: AppColors.accent,
+      );
       _startTimer();
     } else {
       _cameraController.setSessionActive(false);
@@ -136,7 +137,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-
       setState(() {
         if (_remainingSeconds > 0) _remainingSeconds -= 1;
         if (_remainingSeconds <= 0) _advancePhase();
@@ -152,7 +152,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
   void _advancePhase() async {
     if (_phase == _SessionPhase.training) {
       _setScores.add(_currentScore());
-
 
       if (_currentSet < _totalSets) {
         _phase = _SessionPhase.rest;
@@ -189,10 +188,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
           _navigatedToResult = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            Get.off(() => TrainingResultScreen(
-              expressionType: widget.expressionType,
-              finalScore: finalScore, // 결과 화면에도 평균 점수 전달
-            ));
+            Get.off(
+              () => TrainingResultScreen(
+                expressionType: widget.expressionType,
+                finalScore: finalScore, // 결과 화면에도 평균 점수 전달
+              ),
+            );
           });
         }
       }
@@ -202,7 +203,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
       _remainingSeconds = 15;
       _cameraController.setSessionRest(false);
       // ⛔️ 제거: _framePoints.clear();
-      _showInfo('훈련 재개 - $_currentSet세트/$_totalSets세트 (15초)', bg: AppColors.accent);
+      _showInfo(
+        '훈련 재개 - $_currentSet세트/$_totalSets세트 (15초)',
+        bg: AppColors.accent,
+      );
     }
   }
 
@@ -234,7 +238,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
         title: Text(
           _getTitle(),
           style: const TextStyle(
-              color: AppColors.textPrimary, fontWeight: FontWeight.w800),
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         backgroundColor: AppColors.surface,
         elevation: 0,
@@ -246,7 +252,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
             flex: 3,
             child: Container(
               margin: const EdgeInsets.only(
-                  left: AppSizes.md, right: AppSizes.md, top: AppSizes.md),
+                left: AppSizes.md,
+                right: AppSizes.md,
+                top: AppSizes.md,
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.lg),
                 child: Obx(() {
@@ -267,27 +276,70 @@ class _TrainingScreenState extends State<TrainingScreen> {
                         break;
                     }
                     String? big =
-                    (_remainingSeconds > 0 && _remainingSeconds <= 5)
+                        (_remainingSeconds > 0 && _remainingSeconds <= 5)
                         ? _remainingSeconds.toString()
                         : null;
 
-                    return CameraPreviewWidget(
-                      controller: _cameraController.controller!,
-                      isFaceDetected: _cameraController.isFaceDetected.value,
-                      detectedFaces: _cameraController.detectedFaces,
-                      score: score,
-                      neutralStateProvider:
-                      widget.expressionType == ExpressionType.neutral
-                          ? (() => _cameraController.neutralState.value)
-                          : null,
-                      debugNeutral:
-                      widget.expressionType == ExpressionType.neutral
-                          ? _cameraController.neutralDebugEnabled.value
-                          : false,
-                      setsCount: _currentSet,
-                      timerText: _formatTime(_remainingSeconds),
-                      sessionLabel: label,
-                      bigCountdownText: big,
+                    return Stack(
+                      children: [
+                        CameraPreviewWidget(
+                          controller: _cameraController.controller!,
+                          isFaceDetected:
+                              _cameraController.isFaceDetected.value,
+                          detectedFaces: _cameraController.detectedFaces,
+                          showLandmarks: _showLandmarks,
+                          remainingSeconds: _remainingSeconds,
+                          totalSeconds: _phase == _SessionPhase.training
+                              ? 15
+                              : (_phase == _SessionPhase.rest ? 10 : null),
+                          totalSets: _totalSets,
+                          score: score,
+                          neutralStateProvider:
+                              widget.expressionType == ExpressionType.neutral
+                              ? (() => _cameraController.neutralState.value)
+                              : null,
+                          debugNeutral:
+                              widget.expressionType == ExpressionType.neutral
+                              ? _cameraController.neutralDebugEnabled.value
+                              : false,
+                          setsCount: _currentSet,
+                          timerText: _formatTime(_remainingSeconds),
+                          sessionLabel: label,
+                          bigCountdownText: big,
+                        ),
+                        Positioned(
+                          right: AppSizes.md,
+                          bottom: AppSizes.md,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSizes.sm,
+                              vertical: AppSizes.xs,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  '랜드마크',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color.fromARGB(255, 219, 231, 255),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Switch(
+                                  value: _showLandmarks,
+                                  onChanged: (v) =>
+                                      setState(() => _showLandmarks = v),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   }
                   return const Center(child: CircularProgressIndicator());
@@ -315,21 +367,25 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     Obx(() {
                       final score = _currentScore();
                       return FeedbackWidget(
-                        isFaceDetected:
-                        _cameraController.isFaceDetected.value,
+                        isFaceDetected: _cameraController.isFaceDetected.value,
                         score: score,
                         isTraining: _isTraining,
                         expressionType: widget.expressionType,
                       );
                     }),
-                    const SizedBox(height: AppSizes.lg),
+                    const SizedBox(height: AppSizes.md),
+                    const SizedBox(height: AppSizes.sm),
                     ElevatedButton(
                       onPressed: _toggleTraining,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 40, vertical: 15),
+                          horizontal: 40,
+                          vertical: 15,
+                        ),
                         textStyle: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       child: Text(_isTraining ? '훈련 중지' : '훈련 시작'),
                     ),
