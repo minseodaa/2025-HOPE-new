@@ -224,6 +224,16 @@ class TrainingApiService {
 
     if (res.statusCode == 200) {
       _ok('fetchTrainingRecommendations 200');
+      // 응답 본문 샘플 출력 (최대 1000자)
+      try {
+        final body = res.body;
+        if (body.isNotEmpty) {
+          final lim = body.length > 1000 ? 1000 : body.length;
+          print('[REC_BODY] ' + body.substring(0, lim));
+        } else {
+          print('[REC_BODY] <empty>');
+        }
+      } catch (_) {}
       final decoded = jsonDecode(res.body);
       if (decoded is List) {
         return decoded.whereType<Map<String, dynamic>>().toList(
@@ -235,6 +245,8 @@ class TrainingApiService {
         if (list is List) {
           return list.whereType<Map<String, dynamic>>().toList(growable: false);
         }
+        // 단일 객체만 내려오는 경우
+        return <Map<String, dynamic>>[decoded];
       }
       return const <Map<String, dynamic>>[];
     }

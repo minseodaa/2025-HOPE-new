@@ -64,35 +64,15 @@ class _ExpressionSelectScreenState extends State<ExpressionSelectScreen> {
     }
   }
 
-  int? _extractPercent(dynamic v) {
-    if (v == null) return null;
-    if (v is num) {
-      final d = v.toDouble();
-      if (d <= 1.0) return (d * 100).round();
-      if (d > 1.0 && d <= 100.0) return d.round();
-      return d.clamp(0.0, 100.0).round();
-    }
-    final parsed = double.tryParse(v.toString());
-    if (parsed == null) return null;
-    if (parsed <= 1.0) return (parsed * 100).round();
-    if (parsed > 1.0 && parsed <= 100.0) return parsed.round();
-    return parsed.clamp(0.0, 100.0).round();
-  }
+  // 퍼센트 포맷팅은 현재 문구에 사용하지 않음 (단순화)
 
   String _formatRecommendation(Map<String, dynamic> m) {
     final expr = (m['expr'] ?? m['expression'] ?? m['type'])?.toString();
-    final percent = _extractPercent(
-      m['progress'] ??
-          m['percent'] ??
-          m['percentage'] ??
-          m['score'] ??
-          m['value'] ??
-          m['avg'] ??
-          m['average'],
-    );
-    if (expr != null && percent != null) {
+    // 과거 퍼센트 사용 로직은 제거 (요청 문구대로 고정 표현)
+    if (expr != null) {
       final label = _exprLabel(expr);
-      return '$label의 진척도가 ${percent}% 입니다. 이 표정 훈련 어떠세요?';
+      // 요청된 문구 포맷으로 표시 (퍼센트 여부와 무관하게)
+      return '최근 $label의 훈련 진척도가 낮습니다. \n 오늘 $label 연습은 어떤가요? 🤗';
     }
     // 폴백: 기존 텍스트 키 사용
     final primary =
@@ -152,17 +132,18 @@ class _ExpressionSelectScreenState extends State<ExpressionSelectScreen> {
                 horizontal: AppSizes.lg,
               ),
               decoration: BoxDecoration(
-                color: AppColors.textSecondary.withOpacity(0.25),
+                color: const Color.fromARGB(
+                  255,
+                  211,
+                  216,
+                  228,
+                ).withOpacity(0.25),
                 borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '진척도에 따른 표정 훈련 제안',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 7),
                   if (_loadingRecs)
                     const SizedBox(
                       height: 22,
@@ -180,9 +161,15 @@ class _ExpressionSelectScreenState extends State<ExpressionSelectScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('• '),
+                                  const Text(''),
                                   Expanded(
-                                    child: Text(_formatRecommendation(m)),
+                                    child: Text(
+                                      _formatRecommendation(m),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
