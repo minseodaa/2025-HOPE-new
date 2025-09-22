@@ -80,7 +80,10 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
       appBar: AppBar(
         title: const Text(
           '훈련 기록',
-          style: TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         backgroundColor: AppColors.surface,
         centerTitle: true,
@@ -227,7 +230,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 6),
+                  padding: const EdgeInsets.only(top: 4, bottom: 6),
                   child: Text(
                     _getExpressionEmoji(type),
                     style: const TextStyle(fontSize: 64),
@@ -251,7 +254,7 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
