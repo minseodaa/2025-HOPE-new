@@ -23,6 +23,10 @@ class CameraPreviewWidget extends StatelessWidget {
   final String? bigCountdownText; // 마지막 5초 카운트 표시용
   final String? leftTopLabel; // 좌상단 커스텀 라벨 (예: 표정명)
   final bool colorLandmarksByScore; // 점 색상을 점수 기반으로 칠할지 여부
+  final bool showLandmarks; // 랜드마크 표시 토글
+  final int? remainingSeconds; // 남은 초 (프로그레스 바용)
+  final int? totalSeconds; // 전체 초 (프로그레스 바용)
+  final int? totalSets; // 전체 세트 수 (세트 라벨에 함께 표시)
 
   const CameraPreviewWidget({
     super.key,
@@ -38,6 +42,10 @@ class CameraPreviewWidget extends StatelessWidget {
     this.bigCountdownText,
     this.leftTopLabel,
     this.colorLandmarksByScore = true,
+    this.showLandmarks = true,
+    this.remainingSeconds,
+    this.totalSeconds,
+    this.totalSets,
   });
 
   @override
@@ -64,7 +72,8 @@ class CameraPreviewWidget extends StatelessWidget {
           ),
 
         // 얼굴 특징점 오버레이
-        if (isFaceDetected &&
+        if (showLandmarks &&
+            isFaceDetected &&
             detectedFaces != null &&
             detectedFaces!.isNotEmpty)
           CustomPaint(
@@ -119,7 +128,7 @@ class CameraPreviewWidget extends StatelessWidget {
         // ## 병합: 좌상단 라벨 (세트 수 또는 표정명) ##
         if (leftTopLabel != null || setsCount != null)
           Positioned(
-            top: AppSizes.md,
+            top: timerText != null ? (AppSizes.md + 40) : AppSizes.md,
             left: AppSizes.md,
             child: Container(
               padding: const EdgeInsets.symmetric(
@@ -127,16 +136,17 @@ class CameraPreviewWidget extends StatelessWidget {
                 vertical: AppSizes.xs,
               ),
               decoration: BoxDecoration(
-                color: AppColors.surface.withOpacity(0.9),
+                color: AppColors.primary.withOpacity(0.95),
                 borderRadius: BorderRadius.circular(AppRadius.full),
-                border: Border.all(color: AppColors.accent.withOpacity(0.6)),
+                border: Border.all(color: Colors.white24),
               ),
               child: Text(
-                leftTopLabel ?? '세트 $setsCount',
+                leftTopLabel ??
+                    '세트 $setsCount${totalSets != null ? '/$totalSets' : ''}',
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -146,6 +156,7 @@ class CameraPreviewWidget extends StatelessWidget {
         if (timerText != null)
           Positioned(
             top: AppSizes.md,
+            left: AppSizes.md,
             right: AppSizes.md,
             child: Container(
               padding: const EdgeInsets.symmetric(
@@ -153,16 +164,28 @@ class CameraPreviewWidget extends StatelessWidget {
                 vertical: AppSizes.xs,
               ),
               decoration: BoxDecoration(
-                color: AppColors.surface.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(AppRadius.full),
+                color: AppColors.surface.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.border),
               ),
-              child: Text(
-                timerText!,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    timerText!,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.md),
+                  Expanded(
+                    child: _TimerBar(
+                      remaining: remainingSeconds,
+                      total: totalSeconds,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -170,7 +193,7 @@ class CameraPreviewWidget extends StatelessWidget {
         // ## 병합: 상단 중앙 세션 상태 라벨 (버전 2) ##
         if (sessionLabel != null)
           Positioned(
-            top: AppSizes.md,
+            top: timerText != null ? (AppSizes.md + 42) : AppSizes.md,
             left: 0,
             right: 0,
             child: Center(
@@ -252,7 +275,7 @@ class CameraPreviewWidget extends StatelessWidget {
         // 얼굴 감지 표시 (타이머가 있을 때 위치 조정)
         if (isFaceDetected)
           Positioned(
-            top: timerText != null ? (AppSizes.md + 36) : AppSizes.md,
+            top: timerText != null ? (AppSizes.md + 40) : AppSizes.md,
             right: AppSizes.md,
             child: Container(
               padding: const EdgeInsets.symmetric(
@@ -281,6 +304,50 @@ class CameraPreviewWidget extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _TimerBar extends StatelessWidget {
+  final int? remaining;
+  final int? total;
+  const _TimerBar({this.remaining, this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final int t = (total ?? 0) <= 0 ? (remaining ?? 0) : (total ?? 0);
+    final int r = (remaining ?? 0).clamp(0, t);
+    final double ratio = t > 0 ? (r / t) : 0.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double full = constraints.maxWidth;
+        final double targetWidth = full * (1 - ratio).clamp(0.0, 1.0);
+        return Stack(
+          children: [
+            Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                width: targetWidth,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -26,7 +26,8 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
     _personalBestScoresFuture = _fetchAndCalculatePersonalBestScores();
   }
 
-  Future<Map<ExpressionType, double>> _fetchAndCalculatePersonalBestScores() async {
+  Future<Map<ExpressionType, double>>
+  _fetchAndCalculatePersonalBestScores() async {
     final results = await Future.wait([
       _apiService.fetchInitialScores(),
       _apiService.fetchSessions(pageSize: 1000),
@@ -36,10 +37,12 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
     final trainingSessionsData = results[1];
 
     final personalBest = <ExpressionType, double>{};
-    final initialExpressionScores = initialScoresData['expressionScores'] as Map<String, dynamic>? ?? {};
+    final initialExpressionScores =
+        initialScoresData['expressionScores'] as Map<String, dynamic>? ?? {};
 
     for (var type in ExpressionType.values) {
-      final score = (initialExpressionScores[type.name] as num?)?.toDouble() ?? 0.0;
+      final score =
+          (initialExpressionScores[type.name] as num?)?.toDouble() ?? 0.0;
       personalBest[type] = score / 100.0;
     }
 
@@ -56,7 +59,9 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
         score = score / 100.0;
       }
 
-      final type = ExpressionType.values.firstWhereOrNull((e) => e.name == exprString);
+      final type = ExpressionType.values.firstWhereOrNull(
+        (e) => e.name == exprString,
+      );
 
       if (type != null) {
         final currentBest = personalBest[type] ?? 0.0;
@@ -68,13 +73,15 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
     return personalBest;
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('훈련 기록', style: TextStyle(color: AppColors.textPrimary)),
+        title: const Text(
+          '훈련 기록',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
         backgroundColor: AppColors.surface,
         centerTitle: true,
       ),
@@ -94,40 +101,40 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
           }
 
           // 1. 버튼 표시 조건: 모든 표정의 최고 기록이 100% (1.0) 이상인지 확인
-          final bool isAllCompleted = bestScores.values.every((score) => score >= 1.0);
+          final bool isAllCompleted = bestScores.values.every(
+            (score) => score >= 1.0,
+          );
 
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(AppSizes.md),
               child: Column(
                 children: [
-                  _buildOverallAverageCard(_calculateOverallAverage(bestScores)),
+                  _buildOverallAverageCard(
+                    _calculateOverallAverage(bestScores),
+                  ),
                   const SizedBox(height: AppSizes.lg),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      const crossAxisCount = 2;
-                      const spacing = AppSizes.md;
-                      final totalSpacing = spacing * (crossAxisCount - 1);
-                      final itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
-                      const desiredItemHeight = 250.0;
-                      final ratio = itemWidth / desiredItemHeight;
-
-                      return GridView.count(
-                        crossAxisCount: crossAxisCount,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: spacing,
-                        mainAxisSpacing: spacing,
-                        childAspectRatio: ratio,
-                        children: ExpressionType.values.map((type) {
+                  // 훈련모드와 유사한 카드 그리드 (고정 순서)
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: AppSizes.lg,
+                    mainAxisSpacing: AppSizes.lg,
+                    childAspectRatio: 0.7,
+                    children:
+                        [
+                          ExpressionType.smile,
+                          ExpressionType.angry,
+                          ExpressionType.sad,
+                          ExpressionType.neutral,
+                        ].map((type) {
                           return _buildExpressionCard(
                             context,
                             type,
                             bestScores[type],
                           );
                         }).toList(),
-                      );
-                    },
                   ),
 
                   // 2. 초기화 버튼 추가: 조건이 만족되면 화면에 버튼 표시
@@ -141,7 +148,10 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
                           icon: const Icon(Icons.refresh),
                           label: const Text(
                             '새로운 목표 설정하기 (초기화)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           onPressed: () async {
                             // 3. 버튼 동작: 데이터 초기화 후 초기 측정 화면으로 이동
@@ -179,8 +189,10 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('전체 진척도 평균',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              '전체 진척도 평균',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             Text(
               '${averageScore.round()}%',
               style: const TextStyle(
@@ -196,50 +208,84 @@ class _TrainingSummaryScreenState extends State<TrainingSummaryScreen> {
   }
 
   Widget _buildExpressionCard(
-      BuildContext context, ExpressionType type, double? score) {
+    BuildContext context,
+    ExpressionType type,
+    double? score,
+  ) {
     final display = score != null ? (score * 100).round() : null;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.sm),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 110,
-              width: double.infinity,
-              child: Container(
-                color: Colors.grey[200],
-                alignment: Alignment.center,
-                child: Text(_getExpressionEmoji(type),
-                    style: const TextStyle(fontSize: 44)),
-              ),
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
-            const SizedBox(height: 8),
-            Text(_getExpressionName(type),
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('진척도: ${display != null ? '$display%' : 'N/A'}'),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  minimumSize: const Size.fromHeight(38),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 6),
+                  child: Text(
+                    _getExpressionEmoji(type),
+                    style: const TextStyle(fontSize: 64),
+                  ),
                 ),
-                onPressed: () => Get.to(() => TrainingLogScreen(expressionType: type)),
-                child: const Text('기록 보기'),
+                const SizedBox(height: 6),
+                Text(
+                  _getExpressionName(type),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '진척도: ${display != null ? '$display%' : 'N/A'}',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () =>
+                Get.to(() => TrainingLogScreen(expressionType: type)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _buttonColor(type),
+              foregroundColor: AppColors.surface,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
             ),
-          ],
+            child: const Text(
+              '기록 보기',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
         ),
-      ),
+      ],
     );
+  }
+
+  Color _buttonColor(ExpressionType type) {
+    switch (type) {
+      case ExpressionType.smile:
+        return AppColors.primary;
+      case ExpressionType.angry:
+        return AppColors.error;
+      case ExpressionType.sad:
+        return AppColors.secondary;
+      case ExpressionType.neutral:
+        return AppColors.accent;
+    }
   }
 
   String _getExpressionName(ExpressionType type) {

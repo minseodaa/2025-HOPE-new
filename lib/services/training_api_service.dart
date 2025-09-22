@@ -200,4 +200,46 @@ class TrainingApiService {
     _err('fetchInitialScores ${res.statusCode} ${res.body}');
     throw Exception('초기 점수 조회 실패 (${res.statusCode})');
   }
+
+  /// 훈련 추천 조회
+  Future<List<Map<String, dynamic>>> fetchTrainingRecommendations({
+    String? expr,
+    int? limit,
+  }) async {
+    final url = _uri(AppConfig.trainingRecommendationsPath(), {
+      if (expr != null) 'expr': expr,
+      if (limit != null) 'limit': limit,
+    });
+
+    var res = await _client
+        .get(url, headers: await _headers())
+        .timeout(const Duration(seconds: 20));
+
+    if (res.statusCode == 401) {
+      _401();
+      res = await _client
+          .get(url, headers: await _headers(forceRefresh: true))
+          .timeout(const Duration(seconds: 20));
+    }
+
+    if (res.statusCode == 200) {
+      _ok('fetchTrainingRecommendations 200');
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) {
+        return decoded.whereType<Map<String, dynamic>>().toList(
+          growable: false,
+        );
+      }
+      if (decoded is Map<String, dynamic>) {
+        final list = (decoded['recommendations'] ?? decoded['items']);
+        if (list is List) {
+          return list.whereType<Map<String, dynamic>>().toList(growable: false);
+        }
+      }
+      return const <Map<String, dynamic>>[];
+    }
+
+    _err('fetchTrainingRecommendations ${res.statusCode} ${res.body}');
+    throw Exception('훈련 추천 조회 실패 (${res.statusCode})');
+  }
 }

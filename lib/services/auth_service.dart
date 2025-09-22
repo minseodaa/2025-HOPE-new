@@ -8,6 +8,10 @@ class AuthService {
 
   /// 이메일/비밀번호 로그인 후 이메일 인증 여부를 반환
   Future<bool> signIn(String email, String password) async {
+    // 웹 새로고침에서도 세션을 유지하도록 LOCAL 퍼시스턴스 보장
+    try {
+      await _auth.setPersistence(Persistence.LOCAL);
+    } catch (_) {}
     final cred = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -32,19 +36,19 @@ class AuthService {
   }
 
   /// 회원가입 후 인증 메일 발송
- Future<void> createUserAndSendVerification({
-  required String email,
-  required String password,
-}) async {
-  final cred = await _auth.createUserWithEmailAndPassword(
-    email: email,
-    password: password,
-  );
-  final user = cred.user;
-  if (user != null && !user.emailVerified) {
-    await user.sendEmailVerification();
+  Future<void> createUserAndSendVerification({
+    required String email,
+    required String password,
+  }) async {
+    final cred = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = cred.user;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
   }
-}
 
   /// 현재 사용자 정보를 새로고침하고 인증 여부 반환
   Future<bool> reloadAndCheckVerified() async {

@@ -10,6 +10,7 @@ import '../utils/constants.dart';
 import 'expression_select_screen.dart';
 import 'training_summary_screen.dart';
 import '../controllers/progress_controller.dart';
+import '../services/auth_service.dart';
 
 class HomeScreen extends StatelessWidget {
   final CameraDescription camera;
@@ -18,7 +19,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ProgressController controller = Get.put(ProgressController());
+    Get.put(ProgressController());
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -29,7 +30,12 @@ class HomeScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
-            onPressed: () => Get.offAllNamed('/login'),
+            onPressed: () async {
+              try {
+                await AuthService().signOut();
+              } catch (_) {}
+              Get.offAllNamed('/auth');
+            },
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -43,7 +49,8 @@ class HomeScreen extends StatelessWidget {
               const _SectionHeader(title: '훈련모드'),
               const SizedBox(height: AppSizes.md),
               InkWell(
-                onTap: () => Get.to(() => ExpressionSelectScreen(camera: camera)),
+                onTap: () =>
+                    Get.to(() => ExpressionSelectScreen(camera: camera)),
                 borderRadius: BorderRadius.circular(AppRadius.lg),
                 child: Ink(
                   padding: const EdgeInsets.all(AppSizes.lg),
@@ -70,15 +77,17 @@ class HomeScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.lg),
                     ),
+                    color: Colors.white,
+                    surfaceTintColor: Colors.white,
                     clipBehavior: Clip.none,
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.fromLTRB(
                         AppSizes.lg,
                         AppSizes.lg,
                         AppSizes.lg,
                         AppSizes.sm,
                       ),
-                      child: _OverallProgressChart(),
+                      child: const _OverallProgressChart(),
                     ),
                   ),
                 ),
@@ -108,7 +117,8 @@ class _OverallProgressChart extends StatelessWidget {
     return Obx(() {
       final dailyAverages = controller.dailyAverages;
       if (dailyAverages.isEmpty) {
-        if (controller.personalBests.isEmpty && controller.personalBestAverage.value == 0) {
+        if (controller.personalBests.isEmpty &&
+            controller.personalBestAverage.value == 0) {
           return const Center(child: CircularProgressIndicator());
         }
         return const Center(child: Text('훈련 기록이 없습니다.'));
@@ -123,33 +133,38 @@ class _OverallProgressChart extends StatelessWidget {
 
       return LineChart(
         LineChartData(
+          backgroundColor: Colors.white,
           minY: 0,
           maxY: 100,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
             horizontalInterval: 25,
-            getDrawingHorizontalLine: (value) => const FlLine(
-              color: AppColors.border,
-              strokeWidth: 1,
-            ),
+            getDrawingHorizontalLine: (value) =>
+                const FlLine(color: AppColors.border, strokeWidth: 1),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 32,
                 interval: 25,
                 getTitlesWidget: (value, meta) {
-
                   return Padding(
                     padding: const EdgeInsets.only(left: 8.0),
                     child: Text(
                       value.toInt().toString(),
-                      style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   );
                 },
@@ -169,7 +184,10 @@ class _OverallProgressChart extends StatelessWidget {
                     space: 8.0,
                     child: Text(
                       DateFormat('M/d').format(date),
-                      style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   );
                 },
@@ -179,17 +197,24 @@ class _OverallProgressChart extends StatelessWidget {
           lineTouchData: LineTouchData(
             handleBuiltInTouches: true,
             touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (touchedSpot) => AppColors.primary.withOpacity(0.8),
+              getTooltipColor: (touchedSpot) =>
+                  AppColors.primary.withOpacity(0.8),
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((spot) {
                   final date = sortedDates[spot.spotIndex];
                   return LineTooltipItem(
                     '${DateFormat('M월 d일').format(date)}\n',
-                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                     children: [
                       TextSpan(
                         text: '평균 ${spot.y.toStringAsFixed(0)}%',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   );
@@ -199,7 +224,11 @@ class _OverallProgressChart extends StatelessWidget {
             getTouchedSpotIndicator: (barData, spotIndexes) {
               return spotIndexes.map((index) {
                 return TouchedSpotIndicatorData(
-                  const FlLine(color: AppColors.primary, strokeWidth: 2, dashArray: [4, 4]),
+                  const FlLine(
+                    color: AppColors.primary,
+                    strokeWidth: 2,
+                    dashArray: [4, 4],
+                  ),
                   FlDotData(
                     getDotPainter: (spot, percent, barData, index) =>
                         FlDotCirclePainter(
@@ -297,7 +326,10 @@ class _WeekCalendarState extends State<_WeekCalendar> {
   @override
   Widget build(BuildContext context) {
     final start = _startOfWeek(_focused);
-    final days = List<DateTime>.generate(7, (i) => start.add(Duration(days: i)));
+    final days = List<DateTime>.generate(
+      7,
+      (i) => start.add(Duration(days: i)),
+    );
     final monthLabel = DateFormat('y년 M월', 'ko').format(_focused);
 
     return Column(
@@ -305,15 +337,19 @@ class _WeekCalendarState extends State<_WeekCalendar> {
       children: [
         Row(
           children: [
-            Text(monthLabel,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            Text(
+              monthLabel,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
             const Spacer(),
             IconButton(
-                icon: const Icon(Icons.chevron_left_rounded),
-                onPressed: () => _changeWeek(-1)),
+              icon: const Icon(Icons.chevron_left_rounded),
+              onPressed: () => _changeWeek(-1),
+            ),
             IconButton(
-                icon: const Icon(Icons.chevron_right_rounded),
-                onPressed: () => _changeWeek(1)),
+              icon: const Icon(Icons.chevron_right_rounded),
+              onPressed: () => _changeWeek(1),
+            ),
           ],
         ),
         const SizedBox(height: AppSizes.sm),
@@ -326,7 +362,7 @@ class _WeekCalendarState extends State<_WeekCalendar> {
             _Dow('수'),
             _Dow('목'),
             _Dow('금'),
-            _Dow('토')
+            _Dow('토'),
           ],
         ),
         const SizedBox(height: AppSizes.sm),
