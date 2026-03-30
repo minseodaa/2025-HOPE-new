@@ -1,16 +1,41 @@
-# face_newversion
+# 📑 [Project] AR 기반 안면 재활 피드백 시스템: H.O.P.E
 
-A new Flutter project.
+> **"실시간 생체 데이터의 안정화와 정량적 분석 파이프라인을 통한 자가 재활 솔루션"**
+> 
+> **H.O.P.E 창의보조공학 경진대회 우수상 수상 (2025.09)**
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 1. Project Overview
+* **배경**: 안면 마비 환자들이 고비용·대면 방식의 재활에서 벗어나, 집에서도 정확한 피드백을 받으며 자가 훈련을 할 수 있도록 돕는 AR 보조공학 시스템입니다.
+* **핵심 컨셉**: 카메라로 추출한 얼굴 랜드마크를 실시간 분석하여, 사용자의 Baseline(최초 상태) 대비 개선도를 정량화된 점수와 시각적 가이드로 제공합니다.
+* **주요 역할**: 실시간 데이터 분석 파이프라인 설계, 신호 안정화 알고리즘 구현, Firebase 기반 백엔드 아키텍처 구축.
 
-A few resources to get you started if this is your first Flutter project:
+## 2. Tech Stack
+* **Frontend**: Flutter (Cross-platform), Dart
+* **AI/ML**: Google ML Kit Face Detection, Kalman Filter, Exponential Smoothing.
+* **Backend**: Firebase (Auth, Firestore, Functions, Cloud Storage).
+* **Architecture**: State Machine 기반 훈련 루프, RESTful API 설계 (OpenAPI 3.0).
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 3. Key Engineering Points (Frontend Ops Perspective)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### ✅ 고신뢰성 실시간 데이터 처리 파이프라인 (Data Pipeline)
+프론트엔드 단에서 발생하는 대량의 좌표 데이터를 안정적으로 처리하고 정량화하는 구조를 설계했습니다.
+* **좌표 정규화 및 보정**: 얼굴 바운딩 박스를 기준으로 상대좌표를 산출하여, 사용자와 카메라 간의 거리나 각도 변화에 따른 오차를 최소화했습니다.
+* **신호 안정화 알고리즘**: 카메라 흔들림 및 조도 변화로 인한 데이터 노이즈를 제어하기 위해 **칼만 필터(Kalman Filter)**와 **지수 평활법**을 적용하여 피드백의 신뢰도를 높였습니다.
+* **FACS 기반 특징량 추출**: 입꼬리 상승, 눈 개폐 등 AU(Action Unit) 기반의 벡터 변화량을 계산하여 0~100점 사이의 객관적 지표로 변환했습니다.
+
+### ✅ 확장 가능한 서버리스 아키텍처 및 API 설계 (System Ops)
+재활 기록의 영속성과 시스템 운영 효율을 위해 Firebase 기반의 백엔드 구조를 최적화했습니다.
+* **RESTful API 시스템**: 초기 표정 저장, 세션 관리, 진척도 기반 훈련 추천 등 엔드포인트를 분리하여 유지보수성을 확보했습니다.
+* **데이터 경량화 및 보안**: 개인정보 보호를 위해 원본 영상은 저장하지 않고, 분석된 **좌표 및 지표 데이터만 비식별화하여 저장**하는 최소 수집 원칙을 준수했습니다.
+* **자동화된 통계 및 시각화**: Firestore 데이터를 기반으로 주간/월간 추세 차트 및 Before-After 비교 리포트를 자동 생성하는 로직을 구현했습니다.
+
+### ✅ 사용자 중심의 유니버설 디자인 (UX Ops)
+고령 사용자의 접근성을 고려하여 시스템 조작의 허들을 낮추는 인터페이스 표준을 적용했습니다.
+* **멀티모달 피드백**: AR 오버레이(시각), 음성 안내(청각), 진동(촉각)을 결합하여 훈련 집중도를 높였습니다.
+* **접근성 최적화**: 시니어 사용자를 위해 고대비 색상, 대폰트 시스템, 단계별 카운트다운 가이드를 도입했습니다.
+
+## 4. Growth & Takeaways
+* **기술의 사회적 가치**: AI와 AR 기술이 실제 사람의 재활과 삶의 질 개선에 어떻게 기여할 수 있는지 확인하며 공학자로서의 책임감을 배웠습니다.
+* **엔지니어링 근거 수립**: 단순히 기능을 구현하는 것을 넘어, 수학적 모델(칼만 필터)과 표준 지표(FACS)를 바탕으로 기술적 완성도를 높이는 과정을 경험했습니다.
